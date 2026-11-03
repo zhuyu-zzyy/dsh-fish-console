@@ -1,0 +1,112 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { syncMemory, planMood, syncMood, planQq, syncQq, syncBili } from '../lib/identity-adapters.js';
+import { createIdentitySync } from '../lib/identity-sync.js';
+import { moodWorkspaceKey, workspaceSessions } from '../lib/identity.js';
+import { updateJson } from '../lib/json-store.js';
+
+const config = { workspace: '/workspace', selfName: '大肥鱼', ownerName: '管理员' };
+const sessions = { ids: ['session-a'], keys: new Set(['a']) };
+const allCompatible = () => Object.fromEntries(['memory', 'mood', 'qq', 'bili'].map(k => [k, { compatible: true }]));
+
+test('记忆只更新此工作区的名称配置，历史正文和其他会话不变，重复同步不重复备份', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-memory-'));
+  try {
+    const backupDir = path.join(home, 'backups');
+    fs.writeFileSync(path.join(home, 'fish-memory-config.json'), JSON.stringify({ userPronoun: 'ta', selfNames: { 'session-outside': '别的鱼' }, ownerNames: { 'session-outside': '别人' }, sessions: { 'session-a': true } }));
+    fs.mkdirSync(path.join(home, 'fish-memory'));
+    const records = Buffer.from('{"memories":[{"text":"大肥鱼以前说过的话"}],"deleted":[]}');
+    const memoryFile = path.join(home, 'fish-memory/session-a.json'); fs.writeFileSync(memoryFile, records);
+    const args = { home, backupDir, config, sessions };
+    assert.equal((await syncMemory(args)).state, 'synced');
+    const saved = JSON.parse(fs.readFileSync(path.join(home, 'fish-memory-config.json')));
+    assert.equal(saved.selfNames['session-a'], '大肥鱼'); assert.equal(saved.ownerNames['session-a'], '管理员');
+    assert.equal(saved.selfNames['session-outside'], '别的鱼'); assert.equal(saved.userPronoun, 'ta');
+    assert.deepEqual(fs.readFileSync(memoryFile), records);
+    await syncMemory(args); assert.equal(fs.readdirSync(backupDir).length, 1);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('心情按工作区修改现有份，稳定 ID 和其他份保持不变', () => {
+  const current = { 模式: 'workspace', slots: [{ id: 'old', 工作区: moodWorkspaceKey(config.workspace), sessions: [], selfName: '旧鱼' }, { id: 'other', 工作区: '--other--', selfName: '其他鱼' }] };
+  const next = planMood(current, config, sessions);
+  assert.equal(next.slots[0].id, 'old'); assert.equal(next.slots[0].selfName, '大肥鱼');
+  assert.deepEqual(next.slots[1], current.slots[1]); assert.equal(current.slots[0].selfName, '旧鱼');
+  const shared = { 模式: 'session', slots: [{ id: 'shared', sessions: ['a', 'outside'] }] };
+  assert.ok(planMood(shared, config, sessions).blocked);
+});
+
+test('心情原生接口保存后立即校验，并保留其他配置字段', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-mood-'));
+  let current = { 模式: 'workspace', injectMode: 'event', selfAliases: '旧别名', slots: [{ id: 'old', 工作区: moodWorkspaceKey(config.workspace), sessions: [] }] };
+  const calls = [];
+  try {
+    const request = async (route, body) => { assert.equal(route, '/dsh-feiyu-mood/config'); calls.push(body); if (body) current = { ...current, ...body }; return { ok: true, config: structuredClone(current) }; };
+    assert.equal((await syncMood({ backupDir: home, config, sessions, request })).state, 'synced');
+    assert.deepEqual(Object.keys(calls.find(Boolean)), ['slots']); assert.equal(current.selfAliases, '旧别名');
+    assert.equal(current.slots[0].ownerName, '管理员'); assert.equal(fs.readdirSync(home).length, 1);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('QQ 同步只覆盖工作区里的唯一私聊对象，群聊和其他工作区保留', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-qq-'));
+  try {
+    const current = { 令牌: 'TEST-SECRET', 绑定: [
+      { 类型: '私聊', 号码: '1', 会话: 'a', 称呼: '旧称呼' },
+      { 类型: '群', 号码: '2', 会话: 'a', 称呼: '群里的人' },
+      { 类型: '私聊', 号码: '3', 会话: 'outside', 称呼: '别人的称呼' },
+    ] };
+    const file = path.join(home, 'qq-bridge-config.json'); fs.writeFileSync(file, JSON.stringify(current));
+    await syncQq({ home, backupDir: path.join(home, 'backups'), config, sessions });
+    const saved = JSON.parse(fs.readFileSync(file));
+    assert.equal(saved['绑定'][0]['称呼'], '管理员'); assert.deepEqual(saved['绑定'].slice(1), current['绑定'].slice(1)); assert.equal(saved['令牌'], 'TEST-SECRET');
+    const ambiguous = { ...current, 绑定: [...current['绑定'], { 类型: '私聊', 号码: '4', 会话: 'a' }] };
+    assert.ok(planQq(ambiguous, config, sessions).blocked);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('B 站只比较全局称呼，不向全局配置写入工作区的值', async () => {
+  const request = async (_route, body) => { assert.equal(body, undefined); return { ok: true, config: { ownerName: '别的工作区称呼' } }; };
+  assert.equal((await syncBili({ config, request })).state, 'scope_limited');
+});
+
+test('新会话自动补同步；版本不匹配的适配器不写数据；失败结果可重试', async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-sync-'));
+  try {
+    const workspace = fs.realpathSync(home);
+    const record = { path: workspace, sessionIds: ['session-a'] };
+    const ctx = { workspaceRegistry: { list: () => [record] }, agents: { list: () => [] } };
+    let fail = true;
+    const manager = createIdentitySync({ ctx, home, getConfig: () => ({ ...config, workspace }), request: async () => {}, versions: allCompatible,
+      implementations: { memory: syncMemory, mood: async () => { if (fail) throw new Error('TEST-SECRET'); return { state: 'synced' }; } } });
+    const first = await manager.sync(); assert.equal(first.results.mood.state, 'failed'); assert.ok(!JSON.stringify(first).includes('TEST-SECRET'));
+    fail = false; record.sessionIds.push('session-b');
+    const second = await manager.sync(); assert.equal(second.results.mood.state, 'synced');
+    const saved = JSON.parse(fs.readFileSync(path.join(home, 'fish-memory-config.json'))); assert.equal(saved.selfNames['session-b'], '大肥鱼');
+    manager.dispose();
+    const unsupported = createIdentitySync({ ctx, home, getConfig: () => ({ ...config, workspace }), request: async () => {}, versions: () => ({}), implementations: { memory: () => { throw new Error('must not run'); } } });
+    assert.equal((await unsupported.sync()).results.memory.state, 'unsupported'); unsupported.dispose();
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('工作区会话来自 DSH 名单和相同工作目录的新会话', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-scope-'));
+  try {
+    const root = fs.realpathSync(dir);
+    const ctx = { workspaceRegistry: { list: () => [{ path: root, sessionIds: ['session-a'] }] }, agents: { list: () => [] } };
+    const found = workspaceSessions(ctx, root, { session: { id: 'session-b', header: { cwd: root } } });
+    assert.deepEqual([...found.keys].sort(), ['a', 'b']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('损坏的配置不会被空对象覆盖', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-bad-'));
+  try {
+    const file = path.join(dir, 'config.json'); fs.writeFileSync(file, 'broken');
+    assert.throws(() => updateJson(file, () => ({}), path.join(dir, 'backups'), 'test'));
+    assert.equal(fs.readFileSync(file, 'utf8'), 'broken');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

@@ -1,0 +1,39 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { Readable } from 'node:stream';
+import { syncMood } from '../lib/identity-adapters.js';
+import { moodWorkspaceKey } from '../lib/identity.js';
+
+test('对接已安装心情插件的实际保存接口，名称热更新且不改心情账本', { skip: !process.env.FISH_CONSOLE_PLUGIN_ROOT }, async () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-upstream-'));
+  process.env.DSH_HOME = home;
+  const cleanups = [];
+  try {
+    const workspace = fs.realpathSync(home);
+    const directory = path.join(home, 'feiyu-mood'); fs.mkdirSync(directory);
+    fs.writeFileSync(path.join(directory, 'config.json'), JSON.stringify({ 模式: 'workspace', slots: [{ id: 'keep-state-id', 工作区: moodWorkspaceKey(workspace), sessions: [], selfName: '旧名字', ownerName: '旧称呼' }] }));
+    const ledger = Buffer.from('{"version":1,"moods":{"keep-state-id":{"mood":74}}}');
+    fs.writeFileSync(path.join(directory, 'state.json'), ledger);
+    const file = path.join(process.env.FISH_CONSOLE_PLUGIN_ROOT, 'dsh-feiyu-mood/lib/index.js');
+    const { apply } = await import(pathToFileURL(file).href);
+    const routes = new Map();
+    const ctx = { get: () => undefined, on: () => () => {}, interval: () => () => {}, agents: { list: () => [], roots: () => [] },
+      effect: fn => { const off = fn(); if (typeof off === 'function') cleanups.push(off); return off; },
+      webServer: { register: route => { routes.set(route.path, route.handler); return () => routes.delete(route.path); } } };
+    apply(ctx);
+    const request = async (route, body) => {
+      const req = Readable.from(body ? [JSON.stringify(body)] : []); req.method = body ? 'POST' : 'GET';
+      let value, status;
+      await routes.get(route)(req, { writeHead: code => { status = code; }, end: text => { value = JSON.parse(text); } });
+      assert.equal(status, 200); assert.equal(value.ok, true); return value;
+    };
+    assert.equal((await syncMood({ backupDir: path.join(home, 'backups'), config: { workspace, selfName: '小鱼', ownerName: '管理员' }, sessions: { ids: [], keys: new Set() }, request })).state, 'synced');
+    const saved = (await request('/dsh-feiyu-mood/config')).config;
+    assert.equal(saved.slots[0].id, 'keep-state-id'); assert.equal(saved.slots[0].selfName, '小鱼'); assert.equal(saved.slots[0].ownerName, '管理员');
+    assert.deepEqual(fs.readFileSync(path.join(directory, 'state.json')), ledger);
+  } finally { for (const off of cleanups.reverse()) off(); fs.rmSync(home, { recursive: true, force: true }); }
+});

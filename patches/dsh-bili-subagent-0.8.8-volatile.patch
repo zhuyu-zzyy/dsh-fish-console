@@ -1,0 +1,24 @@
+--- dsh-bili-subagent-v0.8.8/index.js
++++ dsh-bili-subagent-v0.8.8-fixed/index.js
+@@ -502,10 +502,19 @@
+     //     ③ `row.value`（可能是启动快照，只在上面两个都没有时才用）。
+     //   ⚠ config 的字段可能是对象/坏值（2026-10-14 那次事故），所以过一遍 normalize 再取。
+     let 热配置 = {}
+-    try { 热配置 = normalize(config, { ...DEFAULTS }) } catch (error) { 热配置 = {} }
++    // DSH volatile fields are stable references with get(), not scalars.
++    // Unwrap their current values before normalize applies type checks.
++    const 当前原值 = {}
++    for (const k of Object.keys(DEFAULTS)) {
++      try {
++        const v = config?.[k]
++        当前原值[k] = v && typeof v === 'object' && Symbol.for('cosmokit.volatile.write') in v && typeof v.get === 'function' ? v.get() : v
++      } catch (error) { /* Fall back to the saved setting for this field. */ }
++    }
++    try { 热配置 = normalize(当前原值, { ...DEFAULTS }) } catch (error) { 热配置 = {} }
+     const 热配置有的键 = new Set()
+     try {
+-      const 原 = config && typeof config === 'object' ? config : {}
++      const 原 = 当前原值
+       for (const k of Object.keys(DEFAULTS)) if (原[k] !== undefined && 原[k] !== null) 热配置有的键.add(k)
+     } catch (error) {}
+     const 落过盘 = savedKeys()
