@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import { openModel } from '../lib/avatar/core.js';
 import { createController, inferEmotion } from '../lib/avatar/controller.js';
 import { createPlayer, referenceCards, referencePose, sampleCurve } from '../lib/avatar/actions.js';
+import { createAvatarPlayer } from '../lib/avatar/scenes.js';
 import { parseCue } from '../lib/avatar/cues.js';
 import { createVoice } from '../lib/avatar/voice.js';
 
@@ -161,6 +162,81 @@ test('四个标准关键姿态来自动作文件，贝塞尔关键点与 Cubism 
   const bezier = { Segments: [0, 0, 1, 1 / 3, 0, 2 / 3, 1, 1, 1] };
   assert.equal(sampleCurve(bezier, 0.25), 0.15625);
 });
+test('统一表情入口播放四个立姿动作，拒绝不兼容场景和忙碌时试播', async () => {
+  let time = 0;
+  const controller = createController({ now: () => time, publish() {}, speak() {}, cancel() {} });
+  controller.reset();
+  const player = createAvatarPlayer(controller, () => 0, false, { now: () => time, hour: () => 14 });
+  const assets = await motionAssets();
+  for (const { id, peak } of referenceCards) {
+    assert.equal(player.expression('action:' + id), true);
+    assert.deepEqual(player.frame(time + peak * 1000, assets), referencePose(id, assets));
+    time += 5000;
+  }
+  assert.equal(player.expression('happy'), false);
+  assert.equal(player.expression('unknown'), false);
+  player.select('swing');
+  assert.equal(player.expression('action:blink'), false);
+  assert.equal(player.scene(time), 'swing', '不支持的选项不得切走当前场景');
+  assert.equal(player.expression('happy'), true);
+  player.select('sleep');
+  assert.equal(player.expression('happy'), false);
+  assert.equal(player.expression('closed'), true);
+  controller.listen(true);
+  assert.equal(player.expression('action:blink'), false);
+  assert.equal(player.expression('auto'), true);
+  controller.listen(false);
+  assert.equal(player.expression('action:blink'), true);
+});
+
+test('随机立姿定时播放不同的完整动作，不重置场景轮换，忙碌暂停且手动选择可退出', async () => {
+  let time = 0, draws = 0;
+  const samples = [0.99, 0, 0.99, 0, 0.4, 0, 0, 0];
+  const controller = createController({ now: () => time, publish() {}, speak() {}, cancel() {} });
+  controller.reset();
+  const player = createAvatarPlayer(controller, () => 0, false, {
+    now: () => time, hour: () => 14, random: () => samples[draws++] ?? 0,
+  });
+  const assets = await motionAssets();
+  assert.equal(player.expression('random'), true);
+  for (const [index, id] of ['turn', 'glance', 'blink', 'front'].entries()) {
+    time = index * 6000;
+    assert.equal(player.scene(time), 'main');
+    player.frame(time, assets);
+    const peak = referenceCards.find(card => card.id === id).peak;
+    assert.deepEqual(player.frame(time + peak * 1000, assets), referencePose(id, assets));
+    player.frame(time + 5999, assets);
+    assert.equal(draws, (index + 1) * 2, '每次动作完整播放，间隔内不得重抽');
+  }
+  time = 24000;
+  assert.equal(player.scene(time), 'swing', '随机动作不得把自动场景轮换一直推迟');
+  controller.listen(true);
+  time = 30000;
+  assert.equal(player.scene(time), 'main');
+  player.frame(time, assets);
+  assert.equal(draws, 8, '录音期间不得随机选动作');
+  controller.listen(false);
+  time = 30001;
+  player.scene(time);
+  assert.deepEqual(player.frame(time, assets), referencePose('front', assets));
+  assert.equal(draws, 10, '空闲后恢复随机播放');
+  assert.equal(player.expression('action:glance'), true);
+  assert.deepEqual(player.frame(time + 660, assets), referencePose('glance', assets));
+  time += 12000;
+  player.scene(time);
+  player.frame(time, assets);
+  assert.equal(draws, 10, '手动动作应退出随机模式');
+  player.select('main');
+  player.expression('random');
+  player.frame(time, assets);
+  time += 30000;
+  assert.equal(player.scene(time), 'main', '随机表情不得改掉手动固定的立姿场景');
+  player.expression('auto');
+  const stopped = draws;
+  player.frame(time, assets);
+  assert.equal(draws, stopped, '场景默认应停止随机播放');
+});
+
 test('本地试动作只在待机时接管画面，回复和静音停顿立即取回口型，工具状态使用独立视线路径', async () => {
   const assets = await motionAssets();
   let state = 'IDLE',

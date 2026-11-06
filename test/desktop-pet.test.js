@@ -158,6 +158,44 @@ test('桌宠和聊天同步轮换设置，旧窗口和失败保存不能修改�
   } finally { cleanup.forEach(dispose => dispose()); }
 });
 
+test('收回等待当前窗口的保存确认，重复请求合并，失败或旧确认不能关闭窗口', async () => {
+  const cleanup = [], messages = [];
+  let saved, killed = false;
+  const child = Object.assign(new EventEmitter(), {
+    stdout: new PassThrough(), stdin: new PassThrough(), kill() { killed = true; },
+  });
+  child.stdin.on('data', bytes => messages.push(JSON.parse(bytes)));
+  const pet = createDesktopPet({ on() {}, effect: setup => cleanup.push(setup()) }, {
+    supported: true, saveRotation(value) { saved = value; },
+    launch() { queueMicrotask(() => child.stdout.write('{"kind":"ready","saveBeforeClose":true}\n')); return child; },
+  });
+  try {
+    await pet.open('A');
+    const generation = pet.status().generation;
+    const input = message => child.stdout.write(JSON.stringify({ generation, ...message }) + '\n');
+    const closing = pet.close('A', generation);
+    assert.equal(pet.close('A', generation), closing);
+    assert.equal(messages.filter(message => message.kind === 'prepareClose').length, 1);
+    const first = messages.at(-1).id;
+    input({ kind: 'closeReady', id: 'wrong' });
+    input({ kind: 'closeReady', id: first, generation: generation - 1 });
+    await wait();
+    assert.equal(killed, false);
+    const failed = assert.rejects(closing, /保存失败/);
+    input({ kind: 'closeReady', id: first, error: '保存失败' });
+    await failed;
+    assert.equal(pet.status().sessionId, 'A');
+    const retry = pet.close('A', generation), second = messages.at(-1).id;
+    input({ kind: 'closeReady', id: first });
+    assert.equal(killed, false);
+    input({ kind: 'setRotation', id: 'save', value: { swing: 160, eat_rice: 20 } });
+    input({ kind: 'closeReady', id: second });
+    assert.deepEqual(saved, { swing: 160, eat_rice: 20 });
+    assert.equal((await retry).sessionId, null);
+    assert.equal(killed, true);
+  } finally { cleanup.forEach(dispose => dispose()); }
+});
+
 test('默认模式跨启动生效，多个聊天只自动打开一只桌宠，收回后可手动重开', async () => {
   let saved = false;
   const children = [], cleanup = [];
@@ -319,4 +357,77 @@ test('桌宠投影只保留公开文字，不转发思考、工具参数和工�
   });
   assert.deepEqual(e.data.message.content, [{ type: 'text', text: '（动作）🍚你好' }]);
   assert.equal(petEvent({ type: 'developer/message', data: { text: 'internal' } }), undefined);
+});
+
+test('工作区控制须等待原生确认，切换会话取消旧请求且拒绝迟到结果', async () => {
+  const cleanup = [], messages = [], targets = [];
+  const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stdin: new PassThrough(), kill() {} });
+  child.stdin.on('data', bytes => messages.push(JSON.parse(bytes)));
+  const pet = createDesktopPet({ on() {}, effect: fn => cleanup.push(fn()) }, {
+    supported: true, saveSession: id => targets.push(id),
+    launch() { queueMicrotask(() => child.stdout.write('{"kind":"ready","controls":true}\n')); return child; },
+  });
+  const view = { scale: 55, mode: 'auto', scene: 'main', expression: 'auto', state: 'IDLE', voice: false };
+  try {
+    await pet.open('A');
+    const first = pet.status().generation;
+    assert.throws(() => pet.control('A', first, 'scale', 200), { httpStatus: 400 });
+    const pending = pet.control('A', first, 'scale', 55), command = messages.at(-1);
+    assert.equal(pet.status().view, null, '未确认时不能声称设置已经应用');
+    child.stdout.write(JSON.stringify({ kind: 'controlResult', generation: first, id: command.id, view }) + '\n');
+    assert.equal((await pending).view.scale, 55);
+    const stale = pet.control('A', first, 'scale', 80), old = messages.at(-1);
+    const rejected = assert.rejects(stale, /会话已切换/);
+    await pet.open('B'); await rejected;
+    child.stdout.write(JSON.stringify({ kind: 'controlResult', generation: first, id: old.id, view: { ...view, scale: 80 } }) + '\n');
+    await wait(); assert.equal(pet.status().view, null);
+    assert.deepEqual(targets, ['A', 'B']);
+    assert.equal(pet.status().lastSessionId, 'B');
+    const second = pet.status().generation;
+    const closing = pet.control('B', second, 'scale', 65);
+    const closed = assert.rejects(closing, /窗口已关闭/);
+    await pet.close('B', second); await closed;
+    assert.equal(pet.status().lastSessionId, 'B');
+  } finally { cleanup.forEach(dispose => dispose()); }
+});
+
+test('全局桌宠无需会话即可打开；汇总并行任务，聊天自动换去向且不重建窗口', async () => {
+  const cleanup = [], messages = [], prompts = [], handlers = {};
+  const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stdin: new PassThrough(), kill() {} });
+  child.stdin.on('data', bytes => messages.push(JSON.parse(bytes)));
+  const pet = createDesktopPet({ on: (name, fn) => handlers[name] = fn, effect: fn => cleanup.push(fn()),
+    get: name => name === 'sessionController' ? { prompt: async request => prompts.push(request) } : undefined }, {
+    supported: true, desktopByDefault: true,
+    launch() { queueMicrotask(() => child.stdout.write('{"kind":"ready","controls":true}\n')); return child; },
+  });
+  const event = (id, type, data) => handlers['session/event']({ id }, { type, data });
+  const input = data => child.stdout.write(JSON.stringify({ generation: pet.status().generation, ...data }) + '\n');
+  try {
+    await pet.autoOpen();
+    assert.equal(pet.status().opened, true); assert.equal(pet.status().global, true); assert.equal(pet.status().sessionId, null);
+    const generation = pet.status().generation;
+    assert.equal(messages[0].kind, 'bind'); assert.equal(messages[0].global, true);
+    input({ kind: 'send', id: 'none', text: '没有目标', sessionId: null, chatGeneration: 1 }); await wait();
+    assert.match(messages.at(-1).error, /先在 DSH 打开/); assert.equal(prompts.length, 0);
+    event('A', 'turn/start', { turn: 1 }); event('B', 'turn/start', { turn: 1 });
+    event('A', 'tool/call', { turn: 1, callId: 'same', name: '工具 A' });
+    event('B', 'tool/call', { turn: 1, callId: 'same', name: '工具 B' });
+    assert.deepEqual(pet.status().activity, { count: 2, tools: ['工具 A', '工具 B'], progress: '2 个任务正在进行' });
+    event('A', 'turn/end', { turn: 1 });
+    assert.deepEqual(pet.status().activity.tools, ['工具 B']); assert.equal(pet.status().activity.count, 1);
+    event('B', 'assistant/message', { turn: 1, message: { content: [{ type: 'text', text: '后台私有正文' }] } });
+    assert.ok(!JSON.stringify(messages).includes('后台私有正文'), '全局活动不应把后台聊天正文混入桌宠对话');
+    pet.foreground('A'); const a = messages.findLast(message => message.kind === 'chatTarget');
+    pet.foreground('B'); const b = messages.findLast(message => message.kind === 'chatTarget');
+    assert.equal(pet.status().generation, generation); assert.equal(messages.filter(message => message.kind === 'bind').length, 1);
+    input({ kind: 'send', id: 'stale', text: '错发', sessionId: 'A', chatGeneration: a.chatGeneration }); await wait();
+    assert.match(messages.at(-1).error, /当前聊天已切换/); assert.equal(prompts.length, 0);
+    input({ kind: 'send', id: 'current', text: '你好', sessionId: 'B', chatGeneration: b.chatGeneration }); await wait();
+    assert.deepEqual(prompts.map(request => [request.sessionId, request.content[0].text]), [['B', '你好']]);
+    event('B', 'turn/end', { turn: 0 }); assert.equal(pet.status().activity.count, 1, '迟到的旧轮次结束不能清除当前任务');
+    event('B', 'turn/end', { turn: 1 }); assert.equal(pet.status().activity.count, 0);
+    await pet.close(undefined, generation);
+    assert.equal(pet.status().opened, false); assert.equal((await pet.autoOpen()).opened, false);
+    pet.foreground('C'); assert.equal(pet.status().opened, false, '打开其他会话不能让收回的桌宠自行弹出');
+  } finally { cleanup.forEach(dispose => dispose()); }
 });

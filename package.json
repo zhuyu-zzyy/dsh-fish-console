@@ -1,6 +1,6 @@
 {
   "name": "dsh-fish-console",
-  "version": "0.13.2",
+  "version": "0.15.1",
   "description": "工作区人设和能力控制台",
   "type": "module",
   "repository": { "type": "git", "url": "git+https://github.com/zhuyu-zzyy/dsh-fish-console.git" },

@@ -11,7 +11,7 @@ test('控制台组装与发送前守卫都读取 B站热路由，热配置改变
   try {
     const workspace = fs.realpathSync(home), config = defaultConfig(), role = config.roles[0];
     role.ownerName = '通用称呼'; role.privateChat = { ...role.privateChat, enabled: true, ownerName: '专属称呼', persona: 'PRIVATE-HOST-BILI', bili: { uid: '555888999', sessionId: 'a' } };
-    config.bindings.sessions = [{ sessionId: 'a', roleId: role.id }];
+    config.bindings.workspaces = [{ workspace, roleId: role.id }];
     fs.mkdirSync(path.join(home, 'fish-console')); fs.writeFileSync(path.join(home, 'fish-console/config.json'), JSON.stringify(config));
     fs.mkdirSync(path.join(home, 'bili-duty')); fs.writeFileSync(path.join(home, 'bili-duty/config.json'), JSON.stringify({ dmUid: 111, targetSession: 'session-stale' }));
     const plugin = path.join(home, 'profiles/desktop/node_modules/dsh-bili-subagent'); fs.mkdirSync(plugin, { recursive: true }); fs.writeFileSync(path.join(plugin, 'package.json'), JSON.stringify({ name: 'dsh-bili-subagent', version: '0.8.8' }));

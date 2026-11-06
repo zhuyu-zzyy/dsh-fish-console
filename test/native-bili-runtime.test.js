@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createTools } from './dsh-runtime.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,7 +10,7 @@ import { defaultConfig } from '../lib/roles.js';
 
 test('真实 DSH AgentLoop 使用 B站 0.8.8 生效路由注入私聊规则，无外部模型与私信', { skip: !process.env.FISH_CONSOLE_DSH_MODULES, timeout: 10000 }, async () => {
   const load = name => import(pathToFileURL(path.join(process.env.FISH_CONSOLE_DSH_MODULES, '@deepseek-ai', name, 'lib/index.js')).href);
-  const [{ Context }, { AgentRegistry }, { SessionStore }, { SessionProjectionRegistry }, { AgentLoop }, { SystemPrompt }, { ToolRuntime }, { LlmRuntime }] = await Promise.all(['cordis', 'dsh-agent', 'dsh-session', 'dsh-session-projection', 'dsh-agent-loop', 'dsh-system-prompt', 'dsh-tools', 'dsh-llm'].map(load));
+  const [{ Context, Service }, { AgentRegistry }, { SessionStore }, { SessionProjectionRegistry }, { AgentLoop }, { SystemPrompt }, { ToolRuntime }, { LlmRuntime }] = await Promise.all(['cordis', 'dsh-agent', 'dsh-session', 'dsh-session-projection', 'dsh-agent-loop', 'dsh-system-prompt', 'dsh-tools', 'dsh-llm'].map(load));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-native-bili-loop-')); process.env.DSH_HOME = home;
   const ctx = new Context();
   const originalFetch = globalThis.fetch;
@@ -17,7 +18,7 @@ test('真实 DSH AgentLoop 使用 B站 0.8.8 生效路由注入私聊规则，�
     const workspace = fs.realpathSync(home), config = defaultConfig();
     config.roles[0].ownerName = '通用称呼';
     config.roles[0].privateChat = { ...config.roles[0].privateChat, enabled: true, ownerName: '专属称呼', persona: 'PRIVATE-BILI-NATIVE', bili: { uid: '555888999', sessionId: 'native-private' } };
-    config.bindings.sessions = [{ sessionId: 'native-private', roleId: 'role-default' }];
+    config.bindings.workspaces = [{ workspace, roleId: 'role-default' }];
     fs.mkdirSync(path.join(home, 'fish-console')); fs.writeFileSync(path.join(home, 'fish-console/config.json'), JSON.stringify(config));
     fs.mkdirSync(path.join(home, 'bili-duty')); fs.writeFileSync(path.join(home, 'bili-duty/config.json'), JSON.stringify({ dmUid: 111222333, targetSession: 'session-stale' }));
     const plugin = path.join(home, 'profiles/desktop/node_modules/dsh-bili-subagent'); fs.mkdirSync(plugin, { recursive: true });
@@ -28,7 +29,8 @@ test('真实 DSH AgentLoop 使用 B站 0.8.8 生效路由注入私聊规则，�
       return new Response(JSON.stringify({ ok: true, config: live }), { headers: { 'content-type': 'application/json' } });
     };
     const agents = new AgentRegistry(ctx), sessions = new SessionStore(ctx), projections = new SessionProjectionRegistry(ctx);
-    const prompt = new SystemPrompt(ctx, {}), tools = new ToolRuntime(ctx, {}), llm = new LlmRuntime(ctx), loop = new AgentLoop(ctx, { agents: [], maxParallelToolCalls: 1 });
+    const prompt = new SystemPrompt(ctx, {}), tools = await createTools(ctx, ToolRuntime), llm = new LlmRuntime(ctx), loop = new AgentLoop(ctx, { agents: [], maxParallelToolCalls: 1 });
+    await agents[Service.init]?.(); await loop[Service.init]?.();
     const routes = new Map(), origin = 'http://127.0.0.1:7319';
     const facade = { on: ctx.on.bind(ctx), effect: fn => ctx.effect(fn), agents, tools, llm, systemPrompt: prompt,
       workspaceRegistry: { list: () => [{ path: workspace, sessionIds: ['native-private'] }] }, webServer: { getOrigin: () => origin, register: route => { routes.set(route.path, route.handler); return () => routes.delete(route.path); } } };

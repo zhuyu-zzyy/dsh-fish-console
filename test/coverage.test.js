@@ -5,9 +5,9 @@ import { defaultConfig, defaultRole, roleSections } from '../lib/roles.js';
 
 function fixture() {
   const config = defaultConfig(); config.roles.push({ ...defaultRole('second'), selfName: '第二条鱼' });
-  config.bindings.sessions = [{ sessionId: 'a', roleId: 'role-default' }, { sessionId: 'b', roleId: 'second' }];
-  const agent = { session: { id: 'a', header: {} } };
-  const entries = { a: { id: 'a', live: true }, b: { id: 'b', live: true } };
+  config.bindings.workspaces = [{ workspace: '/a', roleId: 'role-default' }, { workspace: '/b', roleId: 'second' }];
+  const agent = { session: { id: 'a', header: { cwd: '/a' } } };
+  const entries = { a: { id: 'a', workspace: '/a', live: true }, b: { id: 'b', workspace: '/b', live: true } };
   const catalog = { lookup: id => entries[String(id).replace(/^session-/, '')], isLive: value => value === agent };
   return { config, catalog, agent };
 }
@@ -53,10 +53,10 @@ test('会话改绑其他角色或工作区后，历史成功请求不能作为�
   const { config, catalog } = fixture(), observer = createCoverage();
   observer.observe({ sessionId: 'a', toolHistory: [], system: roleSections(config.roles[0]).map(s => s.text).join('\n') }, config, catalog);
   assert.equal(observer.snapshot(config, catalog).records[0].currentBinding, true);
-  config.bindings.sessions[0].roleId = 'second';
+  config.bindings.workspaces[0].roleId = 'second';
   const history = observer.snapshot(config, catalog).records[0];
   assert.equal(history.currentRevision, true); assert.equal(history.currentBinding, false);
-  config.bindings.sessions = config.bindings.sessions.filter(b => b.sessionId !== 'a');
+  config.bindings.workspaces = config.bindings.workspaces.filter(b => b.workspace !== '/a');
   assert.equal(observer.snapshot(config, catalog).records[0].currentBinding, false);
   config.bindings.workspaces = [{ workspace: '/new-workspace', roleId: 'role-default' }];
   const moved = { ...catalog, lookup: id => id === 'a' ? { ...catalog.lookup(id), workspace: '/new-workspace' } : catalog.lookup(id) };

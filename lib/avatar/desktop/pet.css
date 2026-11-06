@@ -82,7 +82,8 @@ nav {
   white-space: nowrap;
 }
 #pet:hover nav,
-#pet:focus-within nav {
+#pet.keyboard-controls:focus-within nav,
+#pet:has(#compose:not([hidden])) nav {
   opacity: 1;
 }
 #more {
@@ -98,7 +99,7 @@ nav {
   border: 1px solid #a7b8da;
   opacity: 0;
 }
-#pet:hover #more, #more:focus-visible, #pet:has(#settings:not([hidden])) nav {
+#pet:hover #more, #pet.keyboard-controls #more:focus, #pet:has(#settings:not([hidden])) nav {
   opacity: 1;
 }
 button {
@@ -146,6 +147,7 @@ button:focus-visible {
 #compose {
   width: calc(100% - 6px);
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
   padding: 4px;
 }
@@ -156,6 +158,7 @@ button:focus-visible {
   overflow: hidden;
   clip-path: inset(50%);
 }
+#chatTarget { flex-basis: 100%; overflow-wrap: anywhere; color: #59657e; }
 #words {
   min-width: 0;
   flex: 1;
@@ -207,6 +210,9 @@ button:disabled {
   color: inherit;
   font: inherit;
 }
+.scene-setting option:disabled {
+  color: GrayText;
+}
 #rotationSettings {
   margin: 6px 0;
 }
@@ -217,11 +223,6 @@ button:disabled {
 #pet #avatar[data-fish-scene="sleep"] {
   width: calc(var(--pet-width) * .94 * var(--art-scale, 1));
   height: calc(var(--pet-width) * .64 * var(--art-scale, 1));
-}
-#motions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
 }
 .settings-bar {
   border-top: 1px solid #dde3f1;

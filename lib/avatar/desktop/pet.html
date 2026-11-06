@@ -26,7 +26,7 @@
       <section id="settings" aria-label="桌宠大小和动作" hidden>
         <label for="scale">桌宠大小 <output id="percent" for="scale">100%</output></label>
         <input id="scale" type="range" min="20" max="100" step="1" value="100" />
-        <label class="default-mode"><input id="defaultMode" type="checkbox" disabled />默认使用桌宠模式</label>
+        <label class="default-mode"><input id="defaultMode" type="checkbox" disabled />启动 DSH 时自动打开桌宠</label>
         <label class="scene-setting">待机场景 <select id="scene"></select></label>
         <label class="scene-setting">场景表情 <select id="expression"></select></label>
         <details id="rotationSettings">
@@ -39,7 +39,6 @@
             <output id="rotationStatus" role="status"></output>
           </form>
         </details>
-        <div id="motions" aria-label="试动作"></div>
         <div class="settings-bar"><button id="resetScale" type="button">恢复 100%</button><button id="done" type="button">完成</button></div>
       </section>
       <section id="bubble" aria-live="polite" hidden>
@@ -48,6 +47,7 @@
       <output id="notice" aria-live="polite" hidden></output>
       <canvas id="avatar" aria-label="小肥鱼，可拖动"></canvas>
       <form id="compose" hidden>
+        <small id="chatTarget" hidden></small>
         <label for="words">和小肥鱼说话</label
         ><input id="words" maxlength="4000" autocomplete="off" placeholder="和小肥鱼说话…" /><button
           id="mic"

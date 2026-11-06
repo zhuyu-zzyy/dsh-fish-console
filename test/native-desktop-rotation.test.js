@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { appendFile, cp, mkdtemp, rm } from 'node:fs/promises';
+import { appendFile, cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createInterface } from 'node:readline';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createDesktopPet } from '../lib/avatar/desktop-host.js';
+import { readJson, updateJson } from '../lib/json-store.js';
 
 const avatar = fileURLToPath(new URL('../lib/avatar/', import.meta.url));
 async function exerciseRotation() {
@@ -107,6 +108,103 @@ test('原生轮换表单和完成按钮保存到宿主，完成等待确认、�
     assert.deepEqual(pet.status().rotation, saved);
   } finally {
     clearTimeout(timer);
+    cleanup.forEach(dispose => dispose());
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('收回前保存轮换草稿，原生关闭与宿主重启后仍可读回，失败时保留窗口', {
+  skip: process.platform !== 'darwin' || process.env.FISH_CONSOLE_NATIVE_LAYOUT !== '1', timeout: 45000,
+}, async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'fish-rotation-reopen-'));
+  const file = path.join(root, 'desktop-pet.json'), cleanup = [];
+  let pet, child, fail = false, serial = 0;
+  const replies = new Map();
+  const wait = async (condition, message) => {
+    const until = Date.now() + 6000;
+    while (!condition()) {
+      if (Date.now() > until) throw Error(message);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+  };
+  const probe = async (action, value) => {
+    const id = String(++serial);
+    child.stdin.write(JSON.stringify({ kind: 'rotationReopenProbe', id, action, value }) + '\n');
+    await wait(() => replies.has(id), '未收到轮换表单测试结果');
+    return replies.get(id);
+  };
+  const start = () => createDesktopPet({ on() {}, effect: setup => cleanup.push(setup()) }, {
+    supported: true, rotation: readJson(file).rotation,
+    saveRotation(value) {
+      if (fail) throw new Error('模拟保存失败');
+      updateJson(file, current => ({ ...current, rotation: value }), path.join(root, 'backups'), 'desktop-pet');
+    },
+    launch() {
+      child = spawn(path.join(avatar, 'desktop/FishPet'), [root], { stdio: ['pipe', 'pipe', 'ignore'] });
+      createInterface({ input: child.stdout }).on('line', line => {
+        const message = JSON.parse(line);
+        if (message.kind === 'rotationReopenResult') replies.set(message.id, message);
+      });
+      return child;
+    },
+  });
+  try {
+    await cp(avatar, root, { recursive: true });
+    await writeFile(file, JSON.stringify({ desktopByDefault: true, rotation: { swing: 84, eat_rice: 36 } }));
+    await appendFile(path.join(root, 'desktop/pet.js'), `
+const originalReceive = window.fishReceive;
+window.fishReceive = async message => {
+  originalReceive(message);
+  if (message.kind !== 'rotationReopenProbe') return;
+  if (message.value) {
+    $('swingSeconds').value = message.value.swing;
+    $('eatSeconds').value = message.value.eat_rice;
+    $('swingSeconds').dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  if (message.action === 'save') {
+    $('rotationForm').requestSubmit();
+    const until = performance.now() + 4000;
+    while (rotationRequest && performance.now() < until) await new Promise(resolve => setTimeout(resolve, 20));
+  }
+  post({ kind: 'rotationReopenResult', id: message.id,
+    value: { swing: $('swingSeconds').value, eat_rice: $('eatSeconds').value },
+    status: $('rotationStatus').textContent });
+  if (message.action === 'close') $('close').click();
+};
+`);
+    pet = start();
+    await pet.open('reopen-test');
+    assert.match((await probe('save', { swing: 160, eat_rice: 20 })).status, /^已保存/);
+    await pet.close('reopen-test', pet.status().generation);
+    await pet.open('reopen-test');
+    assert.deepEqual((await probe('read')).value, { swing: '160', eat_rice: '20' });
+    await probe('edit', { swing: 180, eat_rice: 30 });
+    await pet.close('reopen-test', pet.status().generation);
+    assert.deepEqual(readJson(file).rotation, { swing: 180, eat_rice: 30 }, '直接收回不得丢掉未保存的轮换时间');
+    cleanup.splice(0).forEach(dispose => dispose());
+    pet = start();
+    await pet.open('reopen-test');
+    assert.deepEqual((await probe('read')).value, { swing: '180', eat_rice: '30' });
+    await probe('close', { swing: 200, eat_rice: 40 });
+    await wait(() => !pet.status().sessionId, '原生关闭按钮没有完成保存并关闭');
+    await pet.open('reopen-test');
+    assert.deepEqual((await probe('read')).value, { swing: '200', eat_rice: '40' });
+    await probe('edit', { swing: '', eat_rice: 40 });
+    await assert.rejects(pet.close('reopen-test', pet.status().generation), /5 到 3600 秒的整数/);
+    assert.equal(pet.status().sessionId, 'reopen-test');
+    assert.equal((await probe('read')).value.swing, '');
+    fail = true;
+    await probe('edit', { swing: 220, eat_rice: 50 });
+    await assert.rejects(pet.close('reopen-test', pet.status().generation), /模拟保存失败/);
+    assert.equal(pet.status().sessionId, 'reopen-test');
+    assert.deepEqual(readJson(file).rotation, { swing: 200, eat_rice: 40 });
+    assert.deepEqual((await probe('read')).value, { swing: '220', eat_rice: '50' });
+    fail = false;
+    await pet.close('reopen-test', pet.status().generation);
+    await pet.open('reopen-test');
+    assert.deepEqual((await probe('read')).value, { swing: '220', eat_rice: '50' });
+    assert.equal(readJson(file).desktopByDefault, true);
+  } finally {
     cleanup.forEach(dispose => dispose());
     await rm(root, { recursive: true, force: true });
   }

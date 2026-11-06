@@ -48,7 +48,7 @@ test('实际记忆 1.4.6 按会话读取控制台同步的名字和称呼，不�
     const memory = await import(pathToFileURL(path.join(process.env.FISH_CONSOLE_PLUGIN_ROOT, 'dsh-fish-memory/lib/index.js')).href);
     const config = defaultConfig(), role = config.roles[0], workspace = fs.realpathSync(home);
     role.selfName = '测试鱼'; role.ownerName = '通用称呼';
-    config.bindings.sessions = [{ sessionId: 'a', roleId: role.id }];
+    config.bindings.workspaces = [{ workspace, roleId: role.id }];
     role.privateChat = { ...role.privateChat, enabled: true, ownerName: '专属称呼', localSessions: ['a'] };
     const session = { id: 'a', nativeId: 'session-a', workspace }, catalog = { sessions: [session], lookup: id => ['a', 'session-a'].includes(id) ? session : undefined };
     const routes = { bili: { compatible: false }, qq: { compatible: false } };

@@ -16,11 +16,11 @@ async function assets(id) {
     [row.Name, await json(new URL(row.File, entry))])));
   return { refs, entry, expressions, motions: { idle: await json(new URL(refs.Motions.idle[0].File, entry)) } };
 }
-function run(reduced = false, hour = 14) {
+function run(reduced = false, hour = 14, options = {}) {
   let time = 0, sequence = 0;
   const controller = createController({ now: () => time, publish() {}, cancel() {}, speak() {} });
   controller.reset();
-  const player = createAvatarPlayer(controller, () => 0, reduced, { now: () => time, hour: () => hour });
+  const player = createAvatarPlayer(controller, () => 0, reduced, { ...options, now: () => time, hour: () => hour });
   return { player, controller, at(t) { time = t; return player.scene(t); },
     event(type, data) { controller.event({ seq: ++sequence, type, data }); } };
 }
@@ -138,6 +138,45 @@ test('表情与动作叠加时保留眨眼、饭团阶梯及卧姿呼吸，低�
   const low=run(true);low.player.select('eat_rice');
   assert.equal(low.player.frame(0,eat,'eat_rice').ParamEatArmR,1);
   assert.equal(low.player.frame(2900,eat,'eat_rice').ParamEatArmR,1);
+});
+
+test('随机表情只使用场景已有资源，切换场景更新范围，睡觉保持闭眼且手选可停止', async () => {
+  const swing = await assets('swing'), eat = await assets('eat_rice'), sleep = await assets('sleep');
+  let draws = 0;
+  const h = run(false, 14, { random: () => { draws++; return 0.999; } });
+  h.player.select('swing');
+  h.player.expression('random');
+  h.player.frame(0, swing, 'swing');
+  assert.equal(h.player.frame(500, swing, 'swing').ParamEyeLOpen, 0);
+  assert.equal(h.player.frame(9000, swing, 'swing').ParamEyeLOpen, 0);
+  assert.equal(draws, 2);
+  assert.equal(h.at(10000), 'swing');
+  h.player.frame(10000, swing, 'swing');
+  assert.equal(h.player.frame(10500, swing, 'swing').ParamBrowLY, -0.19, '闭眼后应切换到不同的困倦表情');
+  assert.equal(draws, 4);
+  h.at(11000);
+  h.player.select('eat_rice');
+  h.player.frame(11000, eat, 'eat_rice');
+  const eating = h.player.frame(11000 + 37000 / 30, eat, 'eat_rice');
+  assert.equal(eating.ParamEyeLOpen, 0);
+  assert.equal(eating.ParamEatArmR, 1, '随机表情不改变送饭动作与播放速度');
+  h.at(14000);
+  h.player.select('sleep');
+  h.player.frame(14000, sleep, 'sleep');
+  const beforeSleep = draws;
+  for (const t of [14500, 24000, 60000]) {
+    assert.equal(h.at(t), 'sleep');
+    const pose = h.player.frame(t, sleep, 'sleep');
+    assert.equal(pose.ParamEyeLOpen, 0);
+    assert.equal(pose.ParamEyeROpen, 0);
+  }
+  assert.equal(draws, beforeSleep, '睡觉只有闭眼，不反复抽取或混入其他表情');
+  h.player.select('swing');
+  h.player.expression('innocent');
+  h.player.frame(60000, swing, 'swing');
+  assert.equal(h.player.frame(60500, swing, 'swing').ParamBrowLY, 0.34);
+  h.player.frame(90000, swing, 'swing');
+  assert.equal(draws, beforeSleep, '手动选择表情后停止随机');
 });
 
 test('坐姿双手交替送饭，入口隐藏各自饭团，闭嘴咀嚼且大碗固定', async () => {

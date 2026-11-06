@@ -7,6 +7,7 @@ const clone = x => structuredClone(x);
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 const tick = async () => { for (let i = 0; i < 8; i++) await new Promise(done => setImmediate(done)); };
 function harness({ navigation = true, biliSection = true, dom, observerClass,
+  roleSnapshot,
   sessions = [{ id: 'local', title: '专用会话' }, { id: 'other', title: '其他会话' }, { id: 'bili', title: '刷B站内容' }] } = {}) {
   const server = { config: { version: 1, enabled: false, sessions: ['local'] }, revision: 1, capabilities: { openPermissions: true }, posts: [], gets: 0, fail: false, failureMessage: '路由拒绝', saveGate: null, readGate: null, captureGate: null, permissionsResponse: null, screenResponse: null };
   const snapshot = () => ({ ok: true, protocolVersion: 1, runtimeVersion: '0.5.5', capabilities: clone(server.capabilities), config: clone(server.config), baseRevision: String(server.revision), status: { supported: true, available: true, busy: false, lastCapture: null }, screenIssues: clone(server.screenIssues) });
@@ -14,10 +15,10 @@ function harness({ navigation = true, biliSection = true, dom, observerClass,
   const response = value => rawResponse({ status: value.ok === false ? 400 : 200, raw: JSON.stringify(value) });
   const fetch = async (url, options) => {
     if (!options?.method) {
-      if (url === '/fish-console/config') return response({ ok: true, protocolVersion: 5, baseRevision: 'roles', config: {
-        version: 5, roles: [{ id: 'role-default', label: '角色', selfName: '鱼', ownerName: '用户', persona: '测试', privateChat: { enabled: false, ownerName: '', persona: '', localSessions: [], bili: { uid: '', sessionId: '' }, qq: { number: '', sessionId: '' } } }],
-        bindings: { workspaces: [], sessions: [] }, inheritParentRole: true, toolPolicies: []
-      }, sessions: [], workspaces: [], tools: { items: [] } });
+      if (url === '/fish-console/config') return response(roleSnapshot || { ok: true, protocolVersion: 7, baseRevision: 'roles', config: {
+        version: 7, roles: [{ id: 'role-default', label: '角色', selfName: '鱼', ownerName: '用户', persona: '测试', privateChat: { enabled: false, ownerName: '', persona: '', localSessions: [], bili: { uid: '', sessionId: '' }, qq: { number: '', sessionId: '' } } }],
+        bindings: { workspaces: [] }
+      }, sessions: [], workspaces: [] });
       server.gets++; if (server.screenResponse) return rawResponse(server.screenResponse);
       const value = snapshot(); if (server.readGate) { const gate = server.readGate; server.readGate = null; await gate.promise; }
       return response(value);
@@ -288,4 +289,45 @@ test('B站引导只滚动并聚焦正确字段，返回或结束时恢复高亮�
       assert.equal(server.posts.length, 1); assert.equal(server.config.enabled, false);
       header.unmount(); ui.unmount();
     }
+});
+
+test('角色页只按工作区绑定，私聊选择不创建会话覆盖且限制到当前角色工作区', async () => {
+  const { defaultConfig } = await import('../lib/roles.js');
+  const config = defaultConfig(); config.bindings.workspaces = [{ workspace: '/a', roleId: 'role-default' }];
+  const roleSnapshot = { ok: true, protocolVersion: 7, baseRevision: 'roles', config,
+    workspaces: [{ path: '/a', title: '工作区 A', available: true }, { path: '/b', title: '工作区 B', available: true }],
+    sessions: [{ id: 'a', title: '私聊 A', workspace: '/a' }, { id: 'b', title: '私聊 B', workspace: '/b' }] };
+  const { mount, registrations, server } = harness({ roleSnapshot });
+  const ui = await mount(registrations.get('fish-console').component);
+  assert.equal(ui.button('工具权限'), undefined);
+  ui.button('工作区绑定').props.onClick(); ui.render();
+  assert.ok(!ui.text().includes('会话单独绑定')); assert.ok(!ui.text().includes('搜索会话'));
+  assert.equal(ui.labels().filter(n => n.children.some(c => c?.type === 'input' && c.props.type === 'checkbox')).length, 2);
+  ui.button('与我私聊').props.onClick(); ui.render();
+  const checkbox = title => ui.labels().find(n => n.children.includes(title)).children.find(n => n?.type === 'input');
+  assert.equal(checkbox('私聊 A').props.disabled, false); assert.equal(checkbox('私聊 B').props.disabled, true);
+  checkbox('私聊 A').props.onChange(); ui.render();
+  await ui.button('保存控制台设置').props.onClick();
+  const sent = server.posts[0].body.config;
+  assert.deepEqual(sent.bindings, { workspaces: config.bindings.workspaces });
+  assert.deepEqual(sent.roles[0].privateChat.localSessions, ['a']);
+  assert.equal(Object.hasOwn(sent.bindings, 'sessions'), false); ui.unmount();
+});
+
+test('旧版控制台协议只提示刷新，不能继续编辑或保存工具策略', async () => {
+  const { mount, registrations } = harness({ roleSnapshot: { ok: true, protocolVersion: 6, config: { toolPolicies: [] } } });
+  const ui = await mount(registrations.get('fish-console').component);
+  assert.match(ui.text(), /接口已升级/);
+  assert.equal(ui.button('保存控制台设置'), undefined); assert.equal(ui.button('工具权限'), undefined);
+  ui.unmount();
+});
+
+test('只在工作区设置提供桌宠入口，不再注册聊天输入框角色面板', async () => {
+  const { registrations, mount } = harness();
+  assert.equal([...registrations.values()].some(entry => entry.options.name === 'conversation.input.dock'), false);
+  const ui = await mount(registrations.get('fish-console').component);
+  assert.ok(ui.button('桌宠'));
+  ui.button('桌宠').props.onClick(); ui.render();
+  assert.match(ui.text(), /桌宠设置在下方直接生效/);
+  ui.unmount();
 });

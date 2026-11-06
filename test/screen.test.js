@@ -31,8 +31,8 @@ async function fixture(fn, initial) {
     guard: () => {}, register: tool => { spec = tool; return () => { calls.unregister++; }; },
   } };
   const getCatalog = () => ({ lookup: id => entries.get(id), isLive: a => agents.includes(a) });
-  let toolDenied = false;
-  const service = createScreenService({ ctx, home, getCatalog, isToolDenied: () => toolDenied,
+  let configUnavailable = false;
+  const service = createScreenService({ ctx, home, getCatalog, isConfigUnavailable: () => configUnavailable,
     getRouteIssues: async ids => {
       const issues = [];
       for (const id of ids) {
@@ -49,7 +49,7 @@ async function fixture(fn, initial) {
   try {
     await fn({ service, file, calls, local, other, child, agents, entries, ctx, getCatalog, spec, claim, enable, execute,
       textOnly: () => { mode = ['text']; }, setCapture: fn => { captureImpl = fn; }, setResolve: fn => { resolveImpl = fn; },
-      setVerify: fn => { verifyImpl = fn; }, setSaveImage: fn => { saveImageImpl = fn; }, denyTool: () => { toolDenied = true; } });
+      setVerify: fn => { verifyImpl = fn; }, setSaveImage: fn => { saveImageImpl = fn; }, failConfig: () => { configUnavailable = true; } });
   } finally { service.dispose(); fs.rmSync(home, { recursive: true, force: true }); }
 }
 
@@ -73,7 +73,7 @@ test('默认禁用不采集，未启用工具不可见；授权本机当前轮�
   assert.ok(!saved.includes(imageBytes.toString())); assert.ok(!saved.includes(imageBytes.toString('base64')));
 }));
 
-test('未授权会话、子代理、伪装代理及工作区关闭工具时均在采集前拒绝', async () => fixture(async f => {
+test('未授权会话、子代理、伪装代理及控制台配置读取失败时均在采集前拒绝', async () => fixture(async f => {
   await f.enable(); f.claim(f.local); f.claim(f.other); f.claim(f.child);
   await assert.rejects(f.execute(f.other), /授权/);
   await assert.rejects(f.execute(f.child), /授权|子代理/);
@@ -85,7 +85,7 @@ test('未授权会话、子代理、伪装代理及工作区关闭工具时均�
   await assert.rejects(f.execute(), /子代理/); delete f.local.session.header.delegationDepth;
   f.entries.set('local', { id: 'local', ambiguous: true });
   await assert.rejects(f.execute(), /授权/); f.entries.set('local', { id: 'local' });
-  f.denyTool(); await assert.rejects(f.execute(), /关闭/);
+  f.failConfig(); await assert.rejects(f.execute(), /配置读取失败/);
   assert.equal(f.calls.capture, 0); assert.equal(f.calls.resolve.length, 0);
 }));
 

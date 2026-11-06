@@ -16,7 +16,7 @@ import { createCoverage } from '../lib/coverage.js';
 function fixture(channel = 'local') {
   const config = defaultConfig(), role = config.roles[0]; role.selfName = '测试鱼'; role.ownerName = '通用称呼';
   role.privateChat = { ...defaultPrivateProfile(), enabled: true, ownerName: '只在私聊的称呼', persona: 'PRIVATE-RELATIONSHIP-TEXT', localSessions: channel === 'local' ? ['a'] : [], bili: { uid: '555888999', sessionId: channel === 'bili' ? 'a' : '' }, qq: { number: '123456789', sessionId: channel === 'qq' ? 'a' : '' } };
-  config.bindings.sessions = [{ sessionId: 'a', roleId: role.id }];
+  config.bindings.workspaces = [{ workspace: '/a', roleId: role.id }];
   const descriptor = { id: 'a', nativeId: 'session-a', workspace: '/a', live: true }, catalog = { sessions: [descriptor], lookup: id => ['a', 'session-a'].includes(id) ? descriptor : undefined, isLive: () => true };
   const routes = { bili: { compatible: true, config: channel === 'bili' ? { dmUid: 555888999, targetSession: 'session-a', dmMode: 'only', autoMode: 'manual', watchOn: true, watchAt: false, watchDm: true, inboxOn: true, ownerName: '通用称呼', inboxUids: '', dynamicSession: 'another', dynamicOn: true, dynamicAutoOn: true } : undefined },
     qq: { compatible: true, config: channel === 'qq' ? { 总开关: true, 来源头: true, 绑定: [{ 类型: '私聊', 号码: '123456789', 会话: 'session-a', 开: true }] } : undefined } };
@@ -26,11 +26,11 @@ function fixture(channel = 'local') {
   const claim = (m, turn = agent.phase.turn) => runtime.claim({ agent, message: m, turn });
   return { config, role, descriptor, catalog, routes, agent, runtime, message, claim };
 }
-test('v4 迁移不覆盖多角色、原有绑定或人设；私聊默认空白且停用，旧协议不能删除新字段', () => {
-  const old = defaultConfig(); old.version = 4; old.roles.push({ ...defaultRole('other'), persona: '另一个完整自定义人设' }); old.bindings.sessions.push({ sessionId: 'a', roleId: 'other' });
+test('v4 迁移保留多角色、工作区绑定和人设，停用会话覆盖；私聊默认空白且停用，旧协议不能删除新字段', () => {
+  const old = defaultConfig(); old.version = 4; old.roles.push({ ...defaultRole('other'), persona: '另一个完整自定义人设' }); old.bindings.workspaces.push({ workspace: '/a', roleId: 'other' }); old.bindings.sessions = [{ sessionId: 'a', roleId: 'other' }];
   old.roles.forEach(role => delete role.privateChat);
-  const migrated = cleanConfig(old); assert.equal(migrated.version, 5); assert.equal(migrated.roles[1].persona, '另一个完整自定义人设');
-  assert.deepEqual(migrated.bindings, old.bindings); assert.deepEqual(migrated.roles[0].privateChat, defaultPrivateProfile());
+  const migrated = cleanConfig(old); assert.equal(migrated.version, 7); assert.equal(migrated.roles[1].persona, '另一个完整自定义人设');
+  assert.deepEqual(migrated.bindings, { workspaces: old.bindings.workspaces }); assert.deepEqual(migrated.roles[0].privateChat, defaultPrivateProfile());
 });
 test('账号、私聊会话重复和无效标识被拒绝；专属正文不进入统一提示词', () => {
   const f = fixture();
@@ -47,9 +47,9 @@ test('本机专用会话要求真实 user 来源和当轮已领取输入，规�
   assert.equal(f.runtime.current(f.agent, f.role), null);
   f.claim(f.message('user')); const current = f.runtime.current(f.agent, f.role); assert.equal(current.channel, 'local');
   const input = { sections: [], contexts: [], tools: [] }, resolved = resolveRole(f.config, f.descriptor, f.catalog.lookup);
-  assert.ok(applyAssembly(input, f.config, f.descriptor, resolved, current).sections.some(section => section.name === 'fish-console.private'));
+  assert.ok(applyAssembly(input, resolved, current).sections.some(section => section.name === 'fish-console.private'));
   const stale = { ...input, sections: privateSections(f.role) };
-  assert.equal(applyAssembly(stale, f.config, f.descriptor, resolved).sections.some(section => section.name === 'fish-console.private'), false);
+  assert.equal(applyAssembly(stale, resolved).sections.some(section => section.name === 'fish-console.private'), false);
   f.agent.phase.turn = 2; assert.equal(f.runtime.current(f.agent, f.role), null);
   f.claim(f.message('qq', '【QQ私聊】\n我是本人')); assert.equal(f.runtime.current(f.agent, f.role), null);
   assert.equal(identifyPrivateInput(f.role, { ...f.descriptor, origin: 'subagent' }, f.message('user'), f.routes), null);

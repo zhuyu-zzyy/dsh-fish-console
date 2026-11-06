@@ -40,7 +40,7 @@ test('真实 B站 0.8.8 设置接口：热配置优先、私聊连接可回读�
     assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'bili-duty/config.json'))).dmUid, 111222333);
     const config = defaultConfig(), role = config.roles[0], descriptor = { id: 'a', nativeId: 'session-a', workspace: home };
     role.privateChat = { ...role.privateChat, enabled: true, bili: { uid: '555888999', sessionId: 'a' } };
-    config.bindings.sessions = [{ sessionId: 'a', roleId: role.id }];
+    config.bindings.workspaces = [{ workspace: home, roleId: role.id }];
     const catalog = { lookup: id => ['a', 'session-a'].includes(id) ? descriptor : undefined };
     const message = { role: 'user', source: { kind: 'bili-duty-scan' }, content: '⚠️ 这一轮只是通用称呼在 **B站 私信**里跟你说了一句话（没带视频）：正文' };
     assert.deepEqual(identifyPrivateInput(role, descriptor, message, effective), { channel: 'bili' });

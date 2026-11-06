@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createTools, assemblePrompt, executeTool } from './dsh-runtime.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,7 +14,7 @@ test('屏幕工具通过真实 DSH 输出校验，图片路由、来源与暂停
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-native-screen-'));
   const context = new Context();
   new SystemPrompt(context, {});
-  const tools = new ToolRuntime(context, { mode: 'native' });
+  const tools = await createTools(context, ToolRuntime);
   const llm = new LlmRuntime(context);
   let captures = 0, stored = 0, modalities = ['text', 'image'];
   const image = { attachmentId: 'sha256:' + 'a'.repeat(64), mediaType: 'image/png', bytes: 68, width: 1, height: 1, name: 'screen.png' };
@@ -42,12 +43,11 @@ test('屏幕工具通过真实 DSH 输出校验，图片路由、来源与暂停
   const service = createScreenService({
     ctx: facade, home,
     getCatalog: () => ({ lookup: id => descriptors.get(id), isLive: () => true }),
-    isToolDenied: () => false,
     capture: { supported: true, capture: async () => { captures++; return { data: png, mediaType: 'image/png', width: 1, height: 1 }; } },
   });
   const claim = (who, source = 'user') => service.claim({ agent: who, turn: who.phase.turn, message: { role: 'user', source: { kind: source }, content: [{ type: 'text', text: '看看当前屏幕' }] } });
   let callId = 0;
-  const invoke = who => tools.execute({ name: 'screen_observe', callId: 'screen-' + ++callId, arguments: {}, agent: who, signal: new AbortController().signal });
+  const invoke = who => executeTool(tools, who, 'screen_observe', {}, 'screen-' + ++callId);
   try {
     assert.equal(llm.listProviders().length, 0, '隔离测试不得注册网络模型');
     await service.save({ version: 1, enabled: true, sessions: ['inside'] }, service.snapshot().baseRevision);
@@ -90,7 +90,7 @@ test('屏幕工具通过真实 DSH 输出校验，图片路由、来源与暂停
     assert.equal(captures, 2, '暂停后不得继续采集');
     assert.equal(llm.listProviders().length, 0);
   } finally {
-    service.dispose();
+    service.dispose(); await context.fiber.dispose();
     fs.rmSync(home, { recursive: true, force: true });
   }
 });
@@ -107,7 +107,7 @@ test('真实提示组装说明屏幕暂停状态与 native/PTC 调用方式，�
       language: 'typescript', programFormat: 'function-body',
       execute: async () => { throw new Error('提示组装测试不能执行程序'); },
     });
-    const tools = new ToolRuntime(context, { mode });
+    const tools = await createTools(context, ToolRuntime, mode);
     const inside = { id: 'inside', session: { id: 'inside', header: { cwd: home } }, options: {}, phase: { kind: 'running', turn: 1 } };
     const outside = { id: 'outside', session: { id: 'outside', header: { cwd: home } }, options: {}, phase: { kind: 'running', turn: 1 } };
     const facade = {
@@ -122,7 +122,7 @@ test('真实提示组装说明屏幕暂停状态与 native/PTC 调用方式，�
     });
     const detach = context.on('system-prompt/assemble', async (_assembly, assemblyContext, next) => service.filterAssembly(await next(), assemblyContext.agent));
     const claim = (agent, kind = 'user') => service.claim({ agent, turn: agent.phase.turn, message: { role: 'user', source: { kind }, content: [{ type: 'text', text: '请看屏幕' }] } });
-    const assemble = agent => prompt.assemble({ agent, scope: agent });
+    const assemble = agent => assemblePrompt(prompt, tools, agent);
     const guidance = assembly => assembly.sections.filter(section => section.name === 'fish-console.screen');
     try {
       await service.save({ version: 1, enabled: false, sessions: ['inside'] }, service.snapshot().baseRevision);
@@ -158,7 +158,7 @@ test('真实提示组装说明屏幕暂停状态与 native/PTC 调用方式，�
         assert.ok(enabled.sections.find(section => section.name === 'tools:sdk')?.text.includes('screen_observe'), 'PTC 应在生成的SDK中保留截图函数声明');
       } else assert.ok(enabled.tools.some(tool => tool.name === 'screen_observe'), 'native 应直接展示获准工具');
     } finally {
-      detach(); service.dispose(); fs.rmSync(home, { recursive: true, force: true });
+      detach(); service.dispose(); await context.fiber.dispose(); fs.rmSync(home, { recursive: true, force: true });
     }
   }
 });

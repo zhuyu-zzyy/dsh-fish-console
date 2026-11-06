@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { createTools } from './dsh-runtime.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,17 +10,18 @@ import { defaultConfig } from '../lib/roles.js';
 
 test('真实 DSH AgentLoop 在领取输入后注入专属规则；模型入口只读确认且没有网络 provider', { skip: !process.env.FISH_CONSOLE_DSH_MODULES, timeout: 10000 }, async () => {
   const load = name => import(pathToFileURL(path.join(process.env.FISH_CONSOLE_DSH_MODULES, '@deepseek-ai', name, 'lib/index.js')).href);
-  const [{ Context }, { AgentRegistry }, { SessionStore }, { SessionProjectionRegistry }, { AgentLoop }, { SystemPrompt }, { ToolRuntime }, { LlmRuntime }] = await Promise.all(['cordis', 'dsh-agent', 'dsh-session', 'dsh-session-projection', 'dsh-agent-loop', 'dsh-system-prompt', 'dsh-tools', 'dsh-llm'].map(load));
+  const [{ Context, Service }, { AgentRegistry }, { SessionStore }, { SessionProjectionRegistry }, { AgentLoop }, { SystemPrompt }, { ToolRuntime }, { LlmRuntime }] = await Promise.all(['cordis', 'dsh-agent', 'dsh-session', 'dsh-session-projection', 'dsh-agent-loop', 'dsh-system-prompt', 'dsh-tools', 'dsh-llm'].map(load));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-native-private-')); process.env.DSH_HOME = home;
   const ctx = new Context();
   try {
     const workspace = fs.realpathSync(home), config = defaultConfig();
-    config.bindings.sessions = [{ sessionId: 'native-private', roleId: 'role-default' }];
+    config.bindings.workspaces = [{ workspace, roleId: 'role-default' }];
     config.roles[0].privateChat = { ...config.roles[0].privateChat, enabled: true, ownerName: '私聊测试称呼', persona: 'PRIVATE-NATIVE-RULE', localSessions: ['native-private'] };
     fs.mkdirSync(path.join(home, 'fish-console')); fs.writeFileSync(path.join(home, 'fish-console/config.json'), JSON.stringify(config));
     const agents = new AgentRegistry(ctx), sessions = new SessionStore(ctx), projections = new SessionProjectionRegistry(ctx);
-    const prompt = new SystemPrompt(ctx, {}), tools = new ToolRuntime(ctx, {}), llm = new LlmRuntime(ctx);
+    const prompt = new SystemPrompt(ctx, {}), tools = await createTools(ctx, ToolRuntime), llm = new LlmRuntime(ctx);
     const loop = new AgentLoop(ctx, { agents: [], maxParallelToolCalls: 1 });
+    await agents[Service.init]?.(); await loop[Service.init]?.();
     const routes = new Map();
     const facade = { on: ctx.on.bind(ctx), effect: fn => ctx.effect(fn), agents, tools, llm, systemPrompt: prompt,
       workspaceRegistry: { list: () => [{ path: workspace, sessionIds: ['native-private'] }] }, webServer: { register: route => { routes.set(route.path, route.handler); return () => routes.delete(route.path); } } };

@@ -29,7 +29,7 @@ test('记忆同步全局称呼和对应会话名字，保留其他字段、其�
     assert.equal(saved.ownerNames.b, '别人'); assert.equal(saved.selfNames.b, '别的鱼'); assert.deepEqual(saved.sessions, { a: false }); assert.deepEqual(saved.other, { secret: 'KEEP-SECRET' });
     assert.deepEqual(fs.readFileSync(history), bytes); const count = fs.readdirSync(f.backupDir).length;
     await syncMemory(args); assert.equal(fs.readdirSync(f.backupDir).length, count);
-    f.config.roles.push({ ...defaultRole('second'), selfName: '另一条鱼', ownerName: '另一位' }); f.config.bindings.sessions.push({ sessionId: 'b', roleId: 'second' });
+    f.config.roles.push({ ...defaultRole('second'), selfName: '另一条鱼', ownerName: '另一位' }); f.config.bindings.workspaces.push({ workspace: '/workspace-b', roleId: 'second' });
     assert.equal((await syncMemory({ ...f, targets: f.targets() })).state, 'partial');
     const multi = JSON.parse(fs.readFileSync(file)); assert.equal(multi.userPronoun, '老大'); assert.equal(multi.ownerNames['session-b'], '另一位');
   } finally { f.close(); }
@@ -59,7 +59,7 @@ test('B站仅提交称呼补丁；全局多角色冲突不写；宿主未确认�
     const partial = await syncBili({ ...f, targets: f.targets(), request }); assert.equal(partial.needsHostRetry, true);
     hostOk = true; assert.equal((await syncBili({ ...f, targets: f.targets(), request, previous: partial })).state, 'synced');
     assert.deepEqual(patches, [{ ownerName: '老大' }, { ownerName: '老大' }]); assert.equal(current.targetSession, 'outside'); assert.equal(current.dynamicOn, true); assert.equal(current.hintPrompt, '保留任务提示');
-    f.config.roles.push({ ...defaultRole('second'), ownerName: '别人' }); f.config.bindings.sessions.push({ sessionId: 'b', roleId: 'second' });
+    f.config.roles.push({ ...defaultRole('second'), ownerName: '别人' }); f.config.bindings.workspaces.push({ workspace: '/workspace-b', roleId: 'second' });
     assert.equal((await syncBili({ ...f, targets: f.targets(), request })).state, 'conflict'); assert.equal(patches.length, 2);
   } finally { f.close(); }
 });

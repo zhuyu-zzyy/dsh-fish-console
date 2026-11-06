@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { inspectIntegrations } from '../lib/integrations.js';
 import { defaultConfig } from '../lib/roles.js';
-test('后台目标检查只读取已适配字段；单独绑定目标后无需改其他插件配置', () => {
+test('后台目标检查只读取已适配字段；绑定目标工作区后无需改其他插件配置', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-route-'));
   try {
     fs.mkdirSync(path.join(home, 'bili-duty'));
@@ -15,7 +15,7 @@ test('后台目标检查只读取已适配字段；单独绑定目标后无需�
     const catalog = { lookup: id => sessions[id] };
     const versions = { bili: { compatible: true }, qq: { compatible: true } };
     assert.deepEqual(inspectIntegrations(home, versions, config, catalog).tasks.map(t => t.state), ['bound', 'unbound']);
-    config.bindings.sessions.push({ sessionId: 'b', roleId: 'role-default' });
+    config.bindings.workspaces.push({ workspace: '/b', roleId: 'role-default' });
     assert.equal(inspectIntegrations(home, versions, config, catalog).tasks[1].roleId, 'role-default');
     assert.deepEqual(fs.readFileSync(file), bytes);
     assert.equal(inspectIntegrations(home, {}, config, catalog).tasks.length, 0);

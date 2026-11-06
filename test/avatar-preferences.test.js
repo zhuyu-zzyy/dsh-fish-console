@@ -25,7 +25,7 @@ test('HTTP 保存轮换时间并在重启后读取，保留桌宠默认模式，
     const routes = new Map();
     registerAvatar({ on() {}, effect: setup => cleanup.push(setup()) },
       (url, handler) => routes.set(url, handler), async request => request.body,
-      (response, code, value) => Object.assign(response, { code, value }), directory);
+      (response, code, value) => Object.assign(response, { code, value }), directory, { supported: false });
     return async (body) => {
       const response = {};
       await routes.get('/fish-console/avatar/pet')({ method: body ? 'POST' : 'GET', body }, response);
@@ -54,4 +54,14 @@ test('HTTP 保存轮换时间并在重启后读取，保留桌宠默认模式，
     cleanup.forEach(dispose => dispose());
     fs.rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('带自动启动目标的插件立即卸载时不启动窗口或留下未处理异常', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-pet-dispose-')), cleanup = [];
+  try {
+    fs.writeFileSync(path.join(directory, 'desktop-pet.json'), JSON.stringify({ desktopByDefault: true, lastSessionId: 'session-A', rotation: { swing: 160, eat_rice: 20 } }));
+    registerAvatar({ on() {}, effect: fn => cleanup.push(fn()) }, () => {}, async () => ({}), () => {}, directory, { supported: false });
+    cleanup.splice(0).forEach(dispose => dispose());
+    await new Promise(setImmediate);
+  } finally { cleanup.forEach(dispose => dispose()); fs.rmSync(directory, { recursive: true, force: true }); }
 });
