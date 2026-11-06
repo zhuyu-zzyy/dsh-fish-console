@@ -1,0 +1,110 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "fish.moc3",
+    "Textures": [
+      "textures/fish.png"
+    ],
+    "Physics": "fish.physics3.json",
+    "DisplayInfo": "fish.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "neutral",
+        "File": "expressions/neutral.exp3.json"
+      },
+      {
+        "Name": "happy",
+        "File": "expressions/happy.exp3.json"
+      },
+      {
+        "Name": "curious",
+        "File": "expressions/curious.exp3.json"
+      },
+      {
+        "Name": "thinking",
+        "File": "expressions/thinking.exp3.json"
+      },
+      {
+        "Name": "surprised",
+        "File": "expressions/surprised.exp3.json"
+      },
+      {
+        "Name": "confused",
+        "File": "expressions/confused.exp3.json"
+      },
+      {
+        "Name": "sad",
+        "File": "expressions/sad.exp3.json"
+      }
+    ],
+    "Motions": {
+      "idle": [
+        {
+          "File": "motions/tide-rest.motion3.json"
+        }
+      ],
+      "listen": [
+        {
+          "File": "motions/attention.motion3.json"
+        }
+      ],
+      "ponder": [
+        {
+          "File": "motions/consider.motion3.json"
+        }
+      ],
+      "tool_wait": [
+        {
+          "File": "motions/tool-watch.motion3.json"
+        }
+      ],
+      "speak": [
+        {
+          "File": "motions/address.motion3.json"
+        }
+      ],
+      "error": [
+        {
+          "File": "motions/hesitate.motion3.json"
+        }
+      ],
+      "nod": [
+        {
+          "File": "motions/acknowledge.motion3.json"
+        }
+      ],
+      "blink": [
+        {
+          "File": "motions/paired-lids.motion3.json"
+        }
+      ],
+      "glance": [
+        {
+          "File": "motions/gaze-and-voice.motion3.json"
+        }
+      ],
+      "turn": [
+        {
+          "File": "motions/side-look.motion3.json"
+        }
+      ]
+    }
+  },
+  "Groups": [
+    {
+      "Target": "Parameter",
+      "Name": "EyeBlink",
+      "Ids": [
+        "ParamEyeLOpen",
+        "ParamEyeROpen"
+      ]
+    },
+    {
+      "Target": "Parameter",
+      "Name": "LipSync",
+      "Ids": [
+        "ParamMouthOpenY"
+      ]
+    }
+  ]
+}

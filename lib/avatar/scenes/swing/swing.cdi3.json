@@ -1,0 +1,98 @@
+{
+  "Version": 3,
+  "Parameters": [
+    {
+      "Id": "ParamSwing",
+      "Name": "秋千前后摆动",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamBodyAngleY",
+      "Name": "坐姿前后俯仰",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamAngleY",
+      "Name": "头部前后随动",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSwingHair",
+      "Name": "发梢与鲸尾",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSwingLegL",
+      "Name": "左腿摆动",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSwingLegR",
+      "Name": "右腿摆动",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeLOpen",
+      "Name": "左眼开合",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeROpen",
+      "Name": "右眼开合",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamMouthForm",
+      "Name": "嘴角",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamBrowLY",
+      "Name": "左眉",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamBrowRY",
+      "Name": "右眉",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeSmile",
+      "Name": "笑眼",
+      "GroupId": "Scene"
+    }
+  ],
+  "ParameterGroups": [
+    {
+      "Id": "Scene",
+      "Name": "荡秋千",
+      "GroupId": ""
+    }
+  ],
+  "Parts": [
+    {
+      "Id": "PartHair",
+      "Name": "头发"
+    },
+    {
+      "Id": "PartSwing",
+      "Name": "秋千"
+    },
+    {
+      "Id": "PartLegs",
+      "Name": "腿脚"
+    },
+    {
+      "Id": "PartFace",
+      "Name": "头部"
+    },
+    {
+      "Id": "PartBody",
+      "Name": "衣裙"
+    },
+    {
+      "Id": "PartArms",
+      "Name": "双臂"
+    }
+  ]
+}

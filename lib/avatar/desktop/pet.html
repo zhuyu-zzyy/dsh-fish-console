@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>小肥鱼桌宠</title>
+    <link rel="stylesheet" href="pet.css" />
+  </head>
+  <body>
+    <button id="edgePeek" type="button" hidden aria-label="小肥鱼在右侧探头，点击对话，向左拖动可移出" title="点我对话 · 右键设置 · 向左拖出">
+      <svg viewBox="268 0 773 1266" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">
+        <image href="right-peek.png" width="1254" height="1254"/>
+      </svg>
+    </button>
+    <main id="pet" aria-label="小肥鱼桌宠">
+      <button id="more" type="button" aria-label="桌宠大小和动作" aria-controls="settings" aria-expanded="false" hidden>⋯</button>
+      <nav aria-label="桌宠控制">
+        <button id="drag" title="拖动桌宠" aria-label="拖动桌宠">⠿</button
+        ><button id="chat" aria-controls="compose" aria-expanded="false">对话</button
+        ><button id="actions" aria-controls="settings" aria-expanded="false">大小/动作</button
+        ><button id="voice" aria-pressed="false">开启朗读</button
+        ><button id="stop" title="停止本次播报" hidden>停止</button
+        ><button id="close" aria-label="收回桌宠" title="收回桌宠">×</button>
+      </nav>
+      <section id="settings" aria-label="桌宠大小和动作" hidden>
+        <label for="scale">桌宠大小 <output id="percent" for="scale">100%</output></label>
+        <input id="scale" type="range" min="20" max="100" step="1" value="100" />
+        <label class="default-mode"><input id="defaultMode" type="checkbox" disabled />默认使用桌宠模式</label>
+        <label class="scene-setting">待机场景 <select id="scene"></select></label>
+        <label class="scene-setting">场景表情 <select id="expression"></select></label>
+        <details id="rotationSettings">
+          <summary>自动轮换时间</summary>
+          <form id="rotationForm">
+            <label class="scene-setting" for="swingSeconds">荡秋千 <span><input id="swingSeconds" type="number" min="5" max="3600" step="1" required value="84" /> 秒</span></label>
+            <label class="scene-setting" for="eatSeconds">吃白米饭 <span><input id="eatSeconds" type="number" min="5" max="3600" step="1" required value="36" /> 秒</span></label>
+            <p>每项 5–3600 秒，修改后点“完成”保存，自动模式下生效。夜间空闲两分钟后进入睡觉。</p>
+            <button id="saveRotation" type="submit" disabled>保存轮换时间</button>
+            <output id="rotationStatus" role="status"></output>
+          </form>
+        </details>
+        <div id="motions" aria-label="试动作"></div>
+        <div class="settings-bar"><button id="resetScale" type="button">恢复 100%</button><button id="done" type="button">完成</button></div>
+      </section>
+      <section id="bubble" aria-live="polite" hidden>
+        <strong id="state"></strong><span id="detail"></span>
+      </section>
+      <output id="notice" aria-live="polite" hidden></output>
+      <canvas id="avatar" aria-label="小肥鱼，可拖动"></canvas>
+      <form id="compose" hidden>
+        <label for="words">和小肥鱼说话</label
+        ><input id="words" maxlength="4000" autocomplete="off" placeholder="和小肥鱼说话…" /><button
+          id="mic"
+          type="button"
+          title="本地语音转写"
+          hidden
+        >
+          录音</button
+        ><button id="send" type="submit">发送</button>
+      </form>
+    </main>
+    <script type="module" src="pet.js"></script>
+  </body>
+</html>

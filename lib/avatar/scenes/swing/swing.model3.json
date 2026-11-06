@@ -1,0 +1,41 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "swing.moc3",
+    "Textures": [
+      "textures/atlas.png"
+    ],
+    "DisplayInfo": "swing.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "happy",
+        "File": "../expressions/happy.exp3.json"
+      },
+      {
+        "Name": "innocent",
+        "File": "../expressions/innocent.exp3.json"
+      },
+      {
+        "Name": "drowsy",
+        "File": "../expressions/drowsy.exp3.json"
+      },
+      {
+        "Name": "content",
+        "File": "../expressions/content.exp3.json"
+      },
+      {
+        "Name": "closed",
+        "File": "../expressions/closed.exp3.json"
+      }
+    ],
+    "Motions": {
+      "idle": [
+        {
+          "File": "motions/idle_swing.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "Version": 3,
+  "Parameters": [
+    {
+      "Id": "ParamEatArmR",
+      "Name": "右手从碗里送饭",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatArmL",
+      "Name": "左手朝下抓饭并转腕送饭",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatGrip",
+      "Name": "右手抓饭收拢",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatGripL",
+      "Name": "左手抓饭收拢",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatBiteVisible",
+      "Name": "右手饭团显隐",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatBiteVisibleL",
+      "Name": "左手饭团显隐",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamAngleY",
+      "Name": "低头迎饭",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamMouthOpenY",
+      "Name": "张大嘴接饭",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatChew",
+      "Name": "闭嘴鼓腮咀嚼",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeSmile",
+      "Name": "满足笑眼",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEatExcited",
+      "Name": "开心与咀嚼特效",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamMouthForm",
+      "Name": "嘴角",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamBrowLY",
+      "Name": "左眉",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamBrowRY",
+      "Name": "右眉",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeLOpen",
+      "Name": "左笑眼放松",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeROpen",
+      "Name": "右笑眼放松",
+      "GroupId": "Scene"
+    }
+  ],
+  "ParameterGroups": [
+    {
+      "Id": "Scene",
+      "Name": "坐姿双手吃白米饭",
+      "GroupId": ""
+    }
+  ],
+  "Parts": [
+    {
+      "Id": "PartBody",
+      "Name": "坐姿身体"
+    },
+    {
+      "Id": "PartFace",
+      "Name": "五官"
+    },
+    {
+      "Id": "PartProps",
+      "Name": "饭团与大碗"
+    },
+    {
+      "Id": "PartArms",
+      "Name": "双手与袖口"
+    },
+    {
+      "Id": "PartEffects",
+      "Name": "开心与咀嚼效果"
+    }
+  ]
+}

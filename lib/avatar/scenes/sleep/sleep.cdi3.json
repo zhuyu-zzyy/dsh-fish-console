@@ -1,0 +1,82 @@
+{
+  "Version": 3,
+  "Parameters": [
+    {
+      "Id": "ParamBreath",
+      "Name": "胸肩呼吸",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSleepBlanket",
+      "Name": "被面起伏",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSleepPillowPress",
+      "Name": "头枕受压",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSleepHair",
+      "Name": "发尾随动",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeLOpen",
+      "Name": "左闭睫放松",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamEyeROpen",
+      "Name": "右闭睫放松",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSleepZzz",
+      "Name": "Zzz 向上飘移",
+      "GroupId": "Scene"
+    },
+    {
+      "Id": "ParamSleepZzzOpacity",
+      "Name": "Zzz 淡入淡出",
+      "GroupId": "Scene"
+    }
+  ],
+  "ParameterGroups": [
+    {
+      "Id": "Scene",
+      "Name": "躺床睡觉",
+      "GroupId": ""
+    }
+  ],
+  "Parts": [
+    {
+      "Id": "PartBed",
+      "Name": "床"
+    },
+    {
+      "Id": "PartPillow",
+      "Name": "枕边"
+    },
+    {
+      "Id": "PartHair",
+      "Name": "头发"
+    },
+    {
+      "Id": "PartBody",
+      "Name": "人物"
+    },
+    {
+      "Id": "PartHead",
+      "Name": "人物"
+    },
+    {
+      "Id": "PartQuilt",
+      "Name": "被子"
+    },
+    {
+      "Id": "PartEffects",
+      "Name": "睡眠效果"
+    }
+  ]
+}

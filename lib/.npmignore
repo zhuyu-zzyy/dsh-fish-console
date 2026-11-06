@@ -1,0 +1,45 @@
+# Ship runtime code and assets only. Keep filters here because package.files
+# explicitly includes lib, so root ignore rules alone do not exclude its files.
+*
+!*/
+!*.js
+!*.json
+!*.png
+!*.moc3
+!*.wasm
+!*.html
+!*.css
+!*.plist
+!*.m
+!*.sh
+!PURISM-LICENSE.txt
+!FishPet
+
+# Never package local settings, credentials, or runtime captures.
+.*/
+artwork/
+_archive/
+node_modules/
+backups/
+logs/
+sessions/
+attachments/
+screenshots/
+recordings/
+fish-console/
+fish-memory/
+feiyu-mood/
+bili-duty/
+tmp/
+test-results/
+coverage/
+config*.json
+.env*
+*credentials*.json
+*secrets*.json
+cookies*.json
+*.local.json
+desktop-pet.json
+screen.json
+fish-memory-config.json
+qq-bridge-config.json

@@ -1,0 +1,25 @@
+{
+  "Version": 3,
+  "FileReferences": {
+    "Moc": "sleep.moc3",
+    "Textures": [
+      "textures/atlas.png"
+    ],
+    "DisplayInfo": "sleep.cdi3.json",
+    "Expressions": [
+      {
+        "Name": "closed",
+        "File": "../expressions/closed.exp3.json"
+      }
+    ],
+    "Motions": {
+      "idle": [
+        {
+          "File": "motions/idle_sleep.motion3.json",
+          "FadeInTime": 0,
+          "FadeOutTime": 0
+        }
+      ]
+    }
+  }
+}

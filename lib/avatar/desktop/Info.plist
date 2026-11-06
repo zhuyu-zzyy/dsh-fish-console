@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>local.dsh.fish-console.pet</string>
+<key>CFBundleName</key><string>小肥鱼桌宠</string>
+<key>LSUIElement</key><true/>
+<key>NSMicrophoneUsageDescription</key><string>只有点桌宠的录音按钮时才使用麦克风，通过 DSH 的本地语音识别生成可编辑的草稿。</string>
+</dict></plist>

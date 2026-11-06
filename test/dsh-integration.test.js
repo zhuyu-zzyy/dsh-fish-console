@@ -51,8 +51,10 @@ test('真实 DSH 组装器、工具运行时、LLM 入口：覆盖证据、compl
     let called = 0;
     tools.register(defineTool({ name: 'bili_search', description: '无网络测试', parameters: {}, output: { schema: { type: 'string' }, render: (_a, value) => [{ type: 'text', text: value }] }, execute: async () => { called++; return 'ok'; } }));
     const assembly = await prompt.assemble({ agent: inside, scope: inside });
-    assert.ok(renderPrompt(assembly).includes('真实运行时测试鱼')); assert.equal(assembly.contexts.length, 2); assert.equal(assembly.tools.length, 0);
-    const other = await prompt.assemble({ agent: outside, scope: outside }); assert.ok(!renderPrompt(other).includes('真实运行时测试鱼')); assert.equal(other.tools.length, 1);
+    assert.ok(renderPrompt(assembly).includes('真实运行时测试鱼')); assert.equal(assembly.contexts.length, 2);
+    assert.deepEqual(assembly.tools.map(tool => tool.name), ['fish_avatar_cue']);
+    const other = await prompt.assemble({ agent: outside, scope: outside }); assert.ok(!renderPrompt(other).includes('真实运行时测试鱼'));
+    assert.deepEqual(other.tools.map(tool => tool.name).sort(), ['bili_search', 'fish_avatar_cue']);
     const denied = await tools.execute({ name: 'bili_search', callId: '1', agent: inside, arguments: {}, signal: new AbortController().signal }); assert.equal(denied.isError, true); assert.equal(called, 0);
     async function enter(system) {
       const request = Object.freeze({ provider: 'no-provider-no-network', model: 'test', sessionId: 'inside', toolHistory: [], messages: Object.freeze([{ role: 'system', content: [{ type: 'text', text: system }] }]), signal: new AbortController().signal });

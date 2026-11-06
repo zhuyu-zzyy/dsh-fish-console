@@ -42,7 +42,7 @@ test('屏幕 HTTP 设置独立保存，默认禁用，限制本机、来源、�
     }
     const initial = await request('/fish-console/screen');
     assert.equal(initial.code, 200); assert.equal(initial.value.protocolVersion, 1);
-    assert.equal(initial.value.runtimeVersion, '0.5.5');
+    assert.equal(initial.value.runtimeVersion, '0.13.2');
     assert.deepEqual(initial.value.screenIssues, []);
     assert.equal(initial.value.capabilities.openPermissions, process.platform === 'darwin');
     assert.deepEqual(initial.value.config, { version: 1, enabled: false, sessions: [] });

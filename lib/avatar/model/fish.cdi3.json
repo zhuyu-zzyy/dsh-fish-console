@@ -1,0 +1,159 @@
+{
+  "Version": 3,
+  "Parameters": [
+    {
+      "Id": "ParamAngleX",
+      "GroupId": "Head",
+      "Name": "左右转头"
+    },
+    {
+      "Id": "ParamAngleY",
+      "GroupId": "Head",
+      "Name": "抬头低头"
+    },
+    {
+      "Id": "ParamAngleZ",
+      "GroupId": "Head",
+      "Name": "头部倾斜"
+    },
+    {
+      "Id": "ParamEyeLOpen",
+      "GroupId": "Eyes",
+      "Name": "左眼开合"
+    },
+    {
+      "Id": "ParamEyeROpen",
+      "GroupId": "Eyes",
+      "Name": "右眼开合"
+    },
+    {
+      "Id": "ParamEyeBallX",
+      "GroupId": "Eyes",
+      "Name": "眼球水平"
+    },
+    {
+      "Id": "ParamEyeBallY",
+      "GroupId": "Eyes",
+      "Name": "眼球垂直"
+    },
+    {
+      "Id": "ParamEyeSmile",
+      "GroupId": "Eyes",
+      "Name": "笑眼弧度"
+    },
+    {
+      "Id": "ParamBrowLY",
+      "GroupId": "Eyes",
+      "Name": "左眉"
+    },
+    {
+      "Id": "ParamBrowRY",
+      "GroupId": "Eyes",
+      "Name": "右眉"
+    },
+    {
+      "Id": "ParamMouthOpenY",
+      "GroupId": "Mouth",
+      "Name": "开口"
+    },
+    {
+      "Id": "ParamMouthForm",
+      "GroupId": "Mouth",
+      "Name": "嘴角"
+    },
+    {
+      "Id": "ParamBodyAngleX",
+      "GroupId": "Body",
+      "Name": "身体重心"
+    },
+    {
+      "Id": "ParamBreath",
+      "GroupId": "Body",
+      "Name": "呼吸"
+    },
+    {
+      "Id": "ParamHairSwing",
+      "GroupId": "Body",
+      "Name": "发梢与鲸尾"
+    },
+    {
+      "Id": "ParamArmL",
+      "GroupId": "Arms",
+      "Name": "左臂抬起"
+    },
+    {
+      "Id": "ParamArmR",
+      "GroupId": "Arms",
+      "Name": "右臂抬起"
+    }
+  ],
+  "ParameterGroups": [
+    {
+      "Id": "Head",
+      "GroupId": "",
+      "Name": "头部"
+    },
+    {
+      "Id": "Eyes",
+      "GroupId": "",
+      "Name": "眉眼"
+    },
+    {
+      "Id": "Mouth",
+      "GroupId": "",
+      "Name": "嘴型"
+    },
+    {
+      "Id": "Body",
+      "GroupId": "",
+      "Name": "身体与头发"
+    },
+    {
+      "Id": "Arms",
+      "GroupId": "",
+      "Name": "双臂"
+    }
+  ],
+  "Parts": [
+    {
+      "Id": "PartBody",
+      "Name": "身体与衣裙"
+    },
+    {
+      "Id": "PartLegs",
+      "Name": "腿袜与鞋"
+    },
+    {
+      "Id": "PartHead",
+      "Name": "脸底、耳与颈"
+    },
+    {
+      "Id": "PartHair",
+      "Name": "分层头发与头饰"
+    },
+    {
+      "Id": "PartEyeL",
+      "Name": "左眼与眉"
+    },
+    {
+      "Id": "PartEyeR",
+      "Name": "右眼与眉"
+    },
+    {
+      "Id": "PartMouth",
+      "Name": "嘴唇与口腔"
+    },
+    {
+      "Id": "PartArmL",
+      "Name": "左臂与手掌"
+    },
+    {
+      "Id": "PartArmR",
+      "Name": "右臂与手掌"
+    },
+    {
+      "Id": "PartAccessories",
+      "Name": "领结、裙结与鲸尾"
+    }
+  ]
+}
