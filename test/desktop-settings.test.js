@@ -52,6 +52,7 @@ test('工作区设置使用桌宠真实状态，无需会话选择、保存轮�
   let unmounted = false; t.after(() => { if (!unmounted) ui.unmount(); });
   source.onmessage({ data: JSON.stringify(state) }); ui.render(); ui.render();
   assert.match(ui.text(), /会话 A/);
+  assert.equal(ui.button('保存轮换时间').props.disabled, true);
   const options = ui.select('场景表情').children.flat();
   assert.equal(options.find(node => node.props.value === 'action:blink').props.disabled, true);
   assert.equal(options.find(node => node.props.value === 'random').props.disabled, false);
@@ -65,6 +66,8 @@ test('工作区设置使用桌宠真实状态，无需会话选择、保存轮�
   assert.match(ui.text(), /55%/);
   const number = () => ui.nodes().filter(node => node.type === 'input' && node.props.type === 'number');
   number()[0].props.onChange({ target: { value: '180' } }); ui.render();
+  assert.equal(ui.button('保存轮换时间').props.disabled, false);
+  assert.match(ui.text(), /轮换时间有未保存修改/);
   source.onmessage({ data: JSON.stringify({ ...state, rotation: { swing: 200, eat_rice: 25 } }) }); ui.render(); ui.render();
   assert.equal(number()[0].props.value, '180', '后台更新不能冲掉未保存输入');
   fail = true; await ui.button('保存轮换时间').props.onClick(); ui.render();
@@ -72,6 +75,7 @@ test('工作区设置使用桌宠真实状态，无需会话选择、保存轮�
   fail = false; await ui.button('保存轮换时间').props.onClick(); ui.render();
   assert.deepEqual(calls.at(-1).value, { swing: 180, eat_rice: 20 });
   assert.match(ui.text(), /轮换时间已保存/);
+  assert.equal(ui.button('保存轮换时间').props.disabled, true);
   source.onmessage({ data: JSON.stringify({ ...state, view: { ...state.view, state: 'LISTENING' } }) }); ui.render();
   assert.equal(ui.select('待机场景').props.disabled, true);
   assert.equal(ui.select('场景表情').children.flat().find(node => node.props.value === 'happy').props.disabled, true);

@@ -145,11 +145,11 @@ test('B站连接通过原设置接口提交字段，校验回读，不调用聊�
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
-test('B站适配明确支持 0.8.7 与 0.8.8，其他版本保守处理', () => {
+test('B站适配明确支持已验证的 0.8.7、0.8.8 和 0.9.2，其他版本保守处理', () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-versions-'));
   try {
     const dir = path.join(home, 'profiles/desktop/node_modules/dsh-bili-subagent'); fs.mkdirSync(dir, { recursive: true });
-    for (const [version, compatible] of [['0.8.7', true], ['0.8.8', true], ['0.8.9', false]]) {
+    for (const [version, compatible] of [['0.8.7', true], ['0.8.8', true], ['0.9.2', true], ['0.8.9', false], ['0.9.1', false], ['0.9.3', false]]) {
       fs.writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'dsh-bili-subagent', version }));
       assert.equal(installedAdapters(home).bili.compatible, compatible);
     }

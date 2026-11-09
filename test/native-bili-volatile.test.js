@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
+import { syncBili } from '../lib/identity-adapters.js';
 
 test('B站配置应读取真实 DSH volatile 值，改称呼不覆盖自动任务且模型切换立即生效', { skip: !process.env.FISH_CONSOLE_BILI_ROOT || !process.env.FISH_CONSOLE_DSH_MODULES, timeout: 10000 }, async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-bili-volatile-'));
@@ -24,18 +25,24 @@ test('B站配置应读取真实 DSH volatile 值，改称呼不覆盖自动任�
       effect: fn => { const off = fn(); if (typeof off === 'function') cleanup.push(off); },
       webServer: { register: route => { routes.set(route.path, route.handler); return () => routes.delete(route.path); } } };
     plugin.apply(ctx, hot);
-    const request = async body => {
+    const request = async (route, body) => {
+      assert.equal(route, '/api/bili-duty/config');
       const req = Readable.from(body ? [JSON.stringify(body)] : []); req.method = body ? 'POST' : 'GET'; req.url = '/api/bili-duty/config'; let result;
       await routes.get('/api/bili-duty')(req, { writeHead: () => {}, end: text => { result = JSON.parse(text); } }); assert.equal(result.ok, true); return result;
     };
-    const before = (await request()).config;
+    const before = (await request('/api/bili-duty/config')).config;
     for (const [key, value] of Object.entries(raw)) assert.equal(before[key], value, key);
-    await request({ ownerName: '老大' });
-    const after = (await request()).config, disk = JSON.parse(fs.readFileSync(path.join(home, 'bili-duty/config.json')));
+    const args = { home, backupDir: path.join(home, 'backups'), targets: { globalOwner: '老大' }, request };
+    assert.equal((await syncBili(args)).state, 'synced');
+    assert.equal((await syncBili(args)).state, 'synced');
+    const after = (await request('/api/bili-duty/config')).config, disk = JSON.parse(fs.readFileSync(path.join(home, 'bili-duty/config.json')));
     for (const [key, value] of Object.entries(raw)) if (key !== 'ownerName') { assert.equal(after[key], value, key); assert.equal(disk[key], value, key); }
     assert.equal(after.ownerName, '老大');
+    // Native settings expose the effective scalar value in describe().value.
+    // Bili 0.9.2 gives explicitly saved host settings priority over apply seeds.
     updateVolatile(hot.subModel, createVolatile('model-B'));
-    assert.equal((await request()).config.subModel, 'model-B');
+    row.value.subModel = 'model-B'; row.user.subModel = 'model-B';
+    assert.equal((await request('/api/bili-duty/config')).config.subModel, 'model-B');
   } finally {
     for (const off of cleanup.reverse()) off();
     if (oldHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = oldHome;

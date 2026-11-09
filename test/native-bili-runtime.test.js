@@ -8,7 +8,7 @@ import { Readable } from 'node:stream';
 import { pathToFileURL } from 'node:url';
 import { defaultConfig } from '../lib/roles.js';
 
-test('真实 DSH AgentLoop 使用 B站 0.8.8 生效路由注入私聊规则，无外部模型与私信', { skip: !process.env.FISH_CONSOLE_DSH_MODULES, timeout: 10000 }, async () => {
+test('真实 DSH AgentLoop 使用 B站 0.9.2 生效路由注入私聊规则，无外部模型与私信', { skip: !process.env.FISH_CONSOLE_DSH_MODULES, timeout: 10000 }, async () => {
   const load = name => import(pathToFileURL(path.join(process.env.FISH_CONSOLE_DSH_MODULES, '@deepseek-ai', name, 'lib/index.js')).href);
   const [{ Context, Service }, { AgentRegistry }, { SessionStore }, { SessionProjectionRegistry }, { AgentLoop }, { SystemPrompt }, { ToolRuntime }, { LlmRuntime }] = await Promise.all(['cordis', 'dsh-agent', 'dsh-session', 'dsh-session-projection', 'dsh-agent-loop', 'dsh-system-prompt', 'dsh-tools', 'dsh-llm'].map(load));
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-native-bili-loop-')); process.env.DSH_HOME = home;
@@ -22,7 +22,7 @@ test('真实 DSH AgentLoop 使用 B站 0.8.8 生效路由注入私聊规则，�
     fs.mkdirSync(path.join(home, 'fish-console')); fs.writeFileSync(path.join(home, 'fish-console/config.json'), JSON.stringify(config));
     fs.mkdirSync(path.join(home, 'bili-duty')); fs.writeFileSync(path.join(home, 'bili-duty/config.json'), JSON.stringify({ dmUid: 111222333, targetSession: 'session-stale' }));
     const plugin = path.join(home, 'profiles/desktop/node_modules/dsh-bili-subagent'); fs.mkdirSync(plugin, { recursive: true });
-    fs.writeFileSync(path.join(plugin, 'package.json'), JSON.stringify({ name: 'dsh-bili-subagent', version: '0.8.8' }));
+    fs.writeFileSync(path.join(plugin, 'package.json'), JSON.stringify({ name: 'dsh-bili-subagent', version: '0.9.2' }));
     const live = { dmUid: 555888999, targetSession: 'native-private', dmMode: 'only', autoMode: 'manual', watchOn: true, watchAt: false, watchDm: true, inboxOn: true, inboxUids: '', ownerName: '通用称呼' };
     globalThis.fetch = async (url, options) => {
       assert.equal(String(url), 'http://127.0.0.1:7319/api/bili-duty/config'); assert.equal(options.method, 'GET');

@@ -81,7 +81,7 @@ function harness({ navigation = true, biliSection = true, dom, observerClass,
     const button = label => nodes().find(n => n.type === 'button' && text(n) === label);
     const master = () => nodes().find(n => n.type === 'input' && n.props.type === 'checkbox');
     const labels = () => nodes().filter(n => n.type === 'label');
-    const ui = { render, master, button, labels, text: () => text(tree), poll: () => [...current.timers.values()].forEach(fn => fn()), unmount: () => current.effects.forEach(e => e?.cleanup?.()) };
+    const ui = { render, nodes, master, button, labels, text: () => text(tree), poll: () => [...current.timers.values()].forEach(fn => fn()), unmount: () => current.effects.forEach(e => e?.cleanup?.()) };
     render(); await tick(); render(); return ui;
   };
   return { server, mount, registrations, navigations };
@@ -144,7 +144,7 @@ test('B站冲突引导只导航到目标页，返回保留待启用设置且由�
     assert.deepEqual(navigations, ['bili-scroll', 'fish-console']); assert.equal(server.posts.length, before);
     header.unmount();
     const section = await mount(registrations.get('fish-console').component);
-    assert.equal(section.button('屏幕感知').props['aria-pressed'], true);
+    assert.equal(section.button('屏幕感知').props['aria-selected'], true);
     section.unmount();
 
     ui = await mount();
@@ -329,5 +329,58 @@ test('只在工作区设置提供桌宠入口，不再注册聊天输入框角�
   assert.ok(ui.button('桌宠'));
   ui.button('桌宠').props.onClick(); ui.render();
   assert.match(ui.text(), /桌宠设置在下方直接生效/);
+  ui.unmount();
+});
+
+test('控制台页签支持方向键与首尾跳转，保留草稿并将焦点移到新页签', async () => {
+  const { mount, registrations, server } = harness();
+  const ui = await mount(registrations.get('fish-console').component);
+  const tabs = () => ui.nodes().filter(node => node.props.role === 'tab');
+  const selected = () => tabs().find(node => node.props['aria-selected']);
+  const labelInput = () => ui.labels().find(node => node.children[0] === '角色名称（用于区分）').children.find(node => node?.type === 'input');
+  assert.equal(tabs().length, 6);
+  assert.equal(tabs().filter(node => node.props.tabIndex === 0).length, 1);
+  assert.equal(ui.button('保存控制台设置').props.disabled, true);
+  labelInput().props.onChange({ target: { value: '未保存的角色名称' } }); ui.render();
+  let focused, prevented = 0;
+  const key = name => {
+    const targets = tabs().map((node, i) => ({ focus() { focused = i; } }));
+    selected().props.onKeyDown({ key: name, preventDefault() { prevented++; }, currentTarget: { parentElement: { querySelectorAll: () => targets } } });
+    ui.render();
+  };
+  key('ArrowRight'); assert.equal(selected().props.id, 'fc-tab-private'); assert.equal(focused, 1);
+  key('End'); assert.equal(selected().props.id, 'fc-tab-desktop'); assert.equal(focused, 5);
+  assert.match(ui.text(), /轮换时间单独保存/);
+  key('ArrowRight'); assert.equal(selected().props.id, 'fc-tab-role'); assert.equal(focused, 0);
+  assert.equal(labelInput().props.value, '未保存的角色名称');
+  assert.equal(ui.button('保存控制台设置').props.disabled, false);
+  key('ArrowLeft'); assert.equal(selected().props.id, 'fc-tab-desktop');
+  key('Home'); assert.equal(selected().props.id, 'fc-tab-role');
+  key('Tab'); assert.equal(prevented, 5, 'Tab 使用浏览器默认焦点移动');
+  assert.equal(server.posts.length, 0, '切换页签不自动保存角色草稿');
+  assert.equal(ui.nodes().filter(node => node.props.role === 'tabpanel' && !node.props.hidden).length, 1);
+  const persona = ui.nodes().find(node => node.type === 'textarea');
+  assert.ok(ui.nodes().some(node => node.props.id === persona.props['aria-labelledby']));
+  ui.unmount();
+});
+
+test('保存失败保留编辑状态，刷新不覆盖草稿，撤销后恢复保存按钮状态', async () => {
+  const { mount, registrations, server } = harness();
+  const ui = await mount(registrations.get('fish-console').component);
+  const input = () => ui.labels().find(node => node.children[0] === '它的名字').children.find(node => node?.type === 'input');
+  const original = input().props.value;
+  input().props.onChange({ target: { value: '修改后的名字' } }); ui.render();
+  assert.equal(ui.button('刷新').props.disabled, true);
+  server.fail = true; server.failureMessage = '模拟保存冲突';
+  await ui.button('保存控制台设置').props.onClick(); ui.render();
+  assert.match(ui.text(), /模拟保存冲突/);
+  assert.equal(input().props.value, '修改后的名字');
+  assert.equal(ui.button('保存控制台设置').props.disabled, false);
+  ui.button('撤销未保存修改').props.onClick(); ui.render();
+  assert.equal(input().props.value, original);
+  assert.equal(ui.button('刷新').props.disabled, false);
+  assert.equal(ui.button('保存控制台设置').props.disabled, true);
+  assert.ok(!ui.text().includes('模拟保存冲突'));
+  assert.equal(server.posts.length, 1);
   ui.unmount();
 });

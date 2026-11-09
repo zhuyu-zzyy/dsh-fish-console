@@ -74,6 +74,49 @@ test('B站有效配置与磁盘配置不一致时停止名称同步，避免其�
     assert.equal(result.state, 'partial'); assert.match(result.message, /生效设置与保存设置不一致/); assert.equal(writes, 0);
   } finally { f.close(); }
 });
+test('B站本地优先账本不阻止名称同步；实际配置差异仍会阻止写入', async () => {
+  const f = fixture();
+  try {
+    fs.mkdirSync(path.join(f.home, 'bili-duty'));
+    const file = path.join(f.home, 'bili-duty/config.json');
+    let current = { ownerName: '管理员', targetSession: 'session-a', autoMode: 'valley', watchOn: true, dynamicAutoOn: true };
+    fs.writeFileSync(file, JSON.stringify({ ...current, _本地优先: ['ownerName'] }));
+    const patches = [];
+    const request = async (route, patch) => {
+      assert.equal(route, '/api/bili-duty/config');
+      if (patch) {
+        patches.push(patch); current = { ...current, ...patch };
+        fs.writeFileSync(file, JSON.stringify({ ...current, _本地优先: [] }));
+      }
+      return { ok: true, config: structuredClone(current), host: { ok: true } };
+    };
+    const args = { ...f, targets: f.targets(), request };
+    assert.equal((await syncBili(args)).state, 'synced');
+    assert.equal((await syncBili(args)).state, 'synced');
+    assert.deepEqual(patches, [{ ownerName: '老大' }]);
+    assert.equal(current.autoMode, 'valley'); assert.equal(current.targetSession, 'session-a');
+    for (const extra of [{ targetSession: 'session-other' }, { _unknown: true }]) {
+      fs.writeFileSync(file, JSON.stringify({ ...current, _本地优先: [], ...extra }));
+      assert.equal((await syncBili(args)).state, 'partial');
+      assert.equal(patches.length, 1);
+    }
+  } finally { f.close(); }
+});
+test('未适配提示区分未安装和已安装版本，并列出已验证版本', async () => {
+  const f = fixture(); let manager;
+  try {
+    const plugin = path.join(f.home, 'profiles/desktop/node_modules/dsh-bili-subagent');
+    manager = createIdentitySync({ ctx: { webServer: {} }, home: f.home, getConfig: () => f.config, getCatalog: async () => f.catalog,
+      implementations: { bili: () => { throw new Error('must not invoke an unsupported adapter'); } } });
+    assert.match((await manager.sync()).results.bili.message, /未安装/);
+    fs.mkdirSync(plugin, { recursive: true });
+    fs.writeFileSync(path.join(plugin, 'package.json'), JSON.stringify({ name: 'dsh-bili-subagent', version: '0.9.3' }));
+    const status = (await manager.sync()).results.bili;
+    assert.equal(status.state, 'unsupported');
+    assert.match(status.message, /0\.9\.3/); assert.match(status.message, /0\.9\.2/);
+    assert.doesNotMatch(status.message, /未安装/);
+  } finally { manager?.dispose(); f.close(); }
+});
 test('QQ 只更新可归属的私聊称呼，群聊、开关和其他对象保留；未配置不创建', async () => {
   const f = fixture();
   try {

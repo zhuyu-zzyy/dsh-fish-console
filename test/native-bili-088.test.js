@@ -9,7 +9,7 @@ import { defaultConfig } from '../lib/roles.js';
 import { readEffectivePrivateRoutes, identifyPrivateInput } from '../lib/private-routing.js';
 import { connectPrivateChannel } from '../lib/private-connect.js';
 
-test('真实 B站 0.8.8 设置接口：热配置优先、私聊连接可回读，且不调用发信', { skip: !process.env.FISH_CONSOLE_BILI_ROOT, timeout: 10000 }, async () => {
+test('真实 B站设置接口：热配置优先、私聊连接可回读且可重复连接，不调用发信', { skip: !process.env.FISH_CONSOLE_BILI_ROOT, timeout: 10000 }, async () => {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'fish-console-native-bili-'));
   const oldHome = process.env.DSH_HOME, oldModules = process.env.DSH_HOST_MODULES, cleanups = [];
   process.env.DSH_HOME = home;
@@ -34,7 +34,8 @@ test('真实 B站 0.8.8 设置接口：热配置优先、私聊连接可回读�
       let code, value; await routes.get('/api/bili-duty')(req, { writeHead: status => { code = status; }, end: text => { value = JSON.parse(text); } });
       assert.equal(code, 200); assert.equal(value.ok, true); return value;
     };
-    const versions = { bili: { compatible: true, version: '0.8.8' }, qq: { compatible: true } };
+    const { version } = JSON.parse(fs.readFileSync(path.join(process.env.FISH_CONSOLE_BILI_ROOT, 'package.json'), 'utf8'));
+    const versions = { bili: { compatible: true, version }, qq: { compatible: true } };
     const effective = await readEffectivePrivateRoutes(home, versions, request);
     assert.equal(effective.bili.config.dmUid, 555888999);
     assert.equal(JSON.parse(fs.readFileSync(path.join(home, 'bili-duty/config.json'))).dmUid, 111222333);
@@ -52,6 +53,8 @@ test('真实 B站 0.8.8 设置接口：热配置优先、私聊连接可回读�
     assert.equal(result.state, 'connected'); assert.equal(hot.dmUid, 555888999); assert.equal(hot.targetSession, 'session-a');
     assert.equal(hot.watchOn, true); assert.equal(hot.watchAt, false); assert.ok(tools.includes('bili_send_message'));
     assert.equal(calls.filter(method => method === 'POST').length, 1);
+    assert.equal((await connectPrivateChannel({ channel: 'bili', role, config, catalog, routes: effective, home, request })).state, 'connected');
+    assert.equal(calls.filter(method => method === 'POST').length, 2);
   } finally {
     for (const off of cleanups.reverse()) off();
     if (oldHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = oldHome;
